@@ -1,0 +1,25 @@
+{
+  "defaultTier": "normal",
+  "showInlineSummary": true,
+  "enableSemanticRanking": false,
+  "preserveCommentPatterns": [
+    "TODO",
+    "FIXME",
+    "@api",
+    "@public"
+  ],
+  "alwaysInclude": [],
+  "excludePatterns": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/.next/**",
+    "**/.nuxt/**",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/*.stories.tsx"
+  ],
+  "cacheStrategy": "disk",
+  "cachePath": ".tokenist/cache.json",
+  "telemetryRotationLimit": 500
+}

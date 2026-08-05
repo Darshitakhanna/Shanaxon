@@ -1,0 +1,71 @@
+{
+  "name": "tokenist-vscode",
+  "displayName": "Tokenist — AI Agent Token Optimizer",
+  "description": "Local context compression and real-time token savings dashboard for AI agent platforms (Claude Code, Antigravity, Kiro)",
+  "version": "1.0.0",
+  "publisher": "tokenist",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other",
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "tokenist.showDashboard",
+        "title": "Tokenist: Show Analytics Dashboard",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "tokenist.init",
+        "title": "Tokenist: Initialize Workspace (.tokenist.json)",
+        "icon": "$(tools)"
+      },
+      {
+        "command": "tokenist.reindex",
+        "title": "Tokenist: Force Re-index Workspace",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "tokenist.runBenchmark",
+        "title": "Tokenist: Run Codebase Benchmark",
+        "icon": "$(dashboard)"
+      }
+    ],
+    "configuration": {
+      "title": "Tokenist",
+      "properties": {
+        "tokenist.defaultTier": {
+          "type": "string",
+          "default": "aggressive",
+          "enum": [
+            "normal",
+            "medium",
+            "aggressive"
+          ],
+          "description": "Default compression tier used by Tokenist MCP server."
+        },
+        "tokenist.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show token savings status bar item."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc -p .",
+    "watch": "tsc -watch -p ."
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.130",
+    "@types/vscode": "^1.80.0",
+    "typescript": "^5.9.3"
+  }
+}
