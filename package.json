@@ -44,6 +44,14 @@
   ],
   "author": "Shanaxon Team",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Darshitakhanna/Shanaxon.git"
+  },
+  "homepage": "https://github.com/Darshitakhanna/Shanaxon#readme",
+  "bugs": {
+    "url": "https://github.com/Darshitakhanna/Shanaxon/issues"
+  },
   "devDependencies": {
     "@types/node": "^18.19.130",
     "@types/react": "^19.2.17",
