@@ -1,3 +1,6 @@
+import { getConfig } from './configLoader';
+import { ModelPricingRegistry } from '../intelligence/economicsEngine';
+
 export interface FileReceiptEntry {
   filePath: string;
   tier: string;
@@ -75,7 +78,7 @@ export class ContextReceiptGenerator {
   formatAsFooter(receipt: ContextReceipt): string {
     const lines: string[] = [];
     lines.push('\n\n==================================================');
-    lines.push(`[Tokenist Context Receipt #${receipt.requestId}] ${receipt.timestamp}`);
+    lines.push(`[Shanaxon Context Receipt #${receipt.requestId}] ${receipt.timestamp}`);
     lines.push(
       `Files: ${receipt.filesIncluded.length} included (${receipt.filesOmitted.length} omitted) | ` +
         `Tokens: ${receipt.totalRawTokens.toLocaleString()} → ${receipt.totalCompressedTokens.toLocaleString()} ` +
@@ -100,7 +103,7 @@ export class ContextReceiptGenerator {
    */
   formatSessionSummary(): string {
     if (this.sessionReceipts.length === 0) {
-      return '[Tokenist FinOps Audit] No tool invocations recorded in this session yet.';
+      return '[Shanaxon FinOps Audit] No tool invocations recorded in this session yet.';
     }
 
     let sessionRaw = 0;
@@ -113,17 +116,22 @@ export class ContextReceiptGenerator {
 
     const sessionSavingsPct =
       sessionRaw > 0 ? parseFloat((((sessionRaw - sessionCompressed) / sessionRaw) * 100).toFixed(2)) : 0;
-    const dollarsSaved = ((sessionRaw - sessionCompressed) / 1000000) * 3.0;
+    const config = getConfig();
+    const activeModel = config.activeModel || config.pricingModel || 'claude-sonnet-4';
+    const registry = ModelPricingRegistry.getInstance();
+    const { pricing, isFallback } = registry.getPricingWithFallback(undefined, activeModel, 'claude-sonnet-4');
+    const dollarsSaved = ((sessionRaw - sessionCompressed) / 1_000_000) * pricing.inputCostPerMillion;
+    const pricingLabel = registry.formatDisplayLabel(pricing, isFallback);
 
     const lines: string[] = [];
     lines.push('==================================================');
-    lines.push('TOKENIST SESSION FINOPS AUDIT & CONTEXT RECEIPTS');
+    lines.push('SHANAXON SESSION FINOPS AUDIT & CONTEXT RECEIPTS');
     lines.push('==================================================');
     lines.push(`Total Requests Audited : ${this.sessionReceipts.length}`);
     lines.push(`Cumulative Raw Tokens  : ${sessionRaw.toLocaleString()}`);
     lines.push(`Cumulative Compressed  : ${sessionCompressed.toLocaleString()}`);
     lines.push(`Cumulative Savings     : ${sessionSavingsPct}% tokens saved`);
-    lines.push(`Estimated Cost Savings : ~$${dollarsSaved.toFixed(4)} USD (Claude Sonnet baseline)`);
+    lines.push(`Estimated Cost Savings : ~$${dollarsSaved.toFixed(4)} USD (${pricingLabel})`);
     lines.push('--------------------------------------------------');
     lines.push('Recent Request Log:');
 

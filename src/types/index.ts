@@ -122,6 +122,90 @@ export interface TenantContext {
   workspaceId: string;
 }
 
+export interface ModelPricing {
+  provider: string;
+  model: string;
+  inputCostPerMillion: number;
+  outputCostPerMillion: number;
+  currency: 'USD';
+  effectiveFrom: string;
+  effectiveTo?: string;
+  source?: string;
+  pricingKnown: boolean;
+}
+
+export type PricingStatus = 'KNOWN' | 'PRICE_UNAVAILABLE' | 'STALE';
+
+export interface CostBreakdown {
+  inputTokens: number;
+  outputTokens: number;
+  inputCost: number;
+  outputCost: number;
+  retryCost: number;
+  totalCost: number;
+  pricingStatus: PricingStatus;
+}
+
+export type OptimizerCostMode = 'estimated' | 'workspace_configured' | 'measured';
+
+export interface OptimizerCost {
+  latencyMs: number;
+  cost: number;
+  mode: OptimizerCostMode;
+  confidence: 'estimated' | 'configured' | 'measured';
+}
+
+export interface EconomicEvaluation {
+  baseline: CostBreakdown;
+  optimized: CostBreakdown;
+  optimizer: OptimizerCost;
+  baselineTotalCost: number;
+  tokenistTotalCost: number;
+  absoluteSavings: number;
+  savingsPercent: number;
+  projectedSavings?: number;
+  projectedSavingsPercent?: number;
+  isEconomicallyEffective: boolean;
+  decision: 'OPTIMIZE' | 'FALLBACK_BASELINE' | 'INSUFFICIENT_PRICING_DATA';
+  reason:
+    | 'SAVINGS_ACCEPTED'
+    | 'NO_MEANINGFUL_SAVINGS'
+    | 'OPTIMIZATION_OVERHEAD_TOO_HIGH'
+    | 'QUALITY_RISK_TOO_HIGH'
+    | 'CRITICAL_INFORMATION_LOSS'
+    | 'RETRY_COST_EXCEEDED_SAVINGS'
+    | 'UNKNOWN_MODEL_PRICING'
+    | 'BASELINE_ALREADY_OPTIMAL';
+}
+
+export interface ExecutionAttempt {
+  requestId: string;
+  optimizationId?: string;
+  sessionId?: string;
+  parentRequestId?: string;
+  attemptNumber: number;
+  inputTokens: number;
+  outputTokens: number;
+  inputCost: number;
+  outputCost: number;
+  totalCost: number;
+  success: boolean;
+  failureReason?: string;
+  timestamp: number;
+}
+
+export interface EconomicsConfig {
+  enabled: boolean;
+  optimizerCostMode: OptimizerCostMode;
+  optimizerCostPerSecond?: number;
+  optimizerComputeCostPerMs?: number;
+  minimumSavingsUsd: number;
+  minimumSavingsPercent: number;
+  qualityFloor: number;
+  trackRetries?: boolean;
+  enablePreflight?: boolean;
+}
+
 export interface OptimizationReceipt {
   timestamp: string;
   taskId?: string;
@@ -139,6 +223,19 @@ export interface OptimizationReceipt {
   itemsOmitted: number;
   executionTimeMs: number;
   warnings: string[];
+
+  // Financial and Economics additions
+  baselineTotalCost?: number;
+  tokenistTotalCost?: number;
+  absoluteSavings?: number;
+  optimizerCost?: number;
+  isEconomicallyEffective?: boolean;
+  economics?: {
+    projected?: EconomicEvaluation;
+    actual?: EconomicEvaluation;
+    optimizationDecision: 'OPTIMIZED' | 'BASELINE' | 'ABSTAINED';
+    decisionReason: string;
+  };
 }
 
 export type FailurePattern = 
@@ -206,5 +303,9 @@ export interface WorkspaceConfig {
   maxMemoryEntries?: number;
   tenantId?: string;
   organizationId?: string;
+
+  // Cost Reduction & Economics Engine additions
+  economics?: EconomicsConfig;
 }
+
 

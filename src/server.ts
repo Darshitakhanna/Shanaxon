@@ -7,8 +7,9 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import * as path from 'path';
 import { promises as fs } from 'fs';
+import { performance } from 'perf_hooks';
 import { CodeCompressionEngine } from './core/parser';
-import { normalizePath } from './core/guardrails';
+import { isSensitiveFile, normalizePath } from './core/guardrails';
 import { WorkspaceIndexer } from './core/workspaceIndexer';
 import { AstCache } from './core/cache';
 import { ImportGraph } from './core/importGraph';
@@ -28,7 +29,7 @@ import { HybridRanker } from './core/hybridRanker';
 import { routePrompt } from './middleware/promptRouter';
 import { pruneHistory } from './middleware/historyPruner';
 
-// Tokenist v2 Revolutionary Extensions
+// Shanaxon v2 Revolutionary Extensions
 import { RetrieveCache } from './core/retrieveCache';
 import { SmartCrusher } from './core/smartCrusher';
 import { CacheAligner } from './core/cacheAligner';
@@ -36,18 +37,24 @@ import { getTersePrompt } from './core/terseMode';
 import { SchemaCompressor } from './core/schemaCompressor';
 import { ContextReceiptGenerator } from './core/contextReceipt';
 
-// Tokenist v6.0 Context Intelligence & Capability Equalization Extensions
+// Shanaxon v6.0 Context Intelligence & Capability Equalization Extensions
 import { classifyTask } from './intelligence/taskUnderstanding';
 import { getModelPolicy, adjustTierForModel } from './intelligence/modelPolicy';
 import { storeMemory, recallMemory, listMemory, deleteMemory } from './intelligence/criticalMemory';
 import { scoreContextImportance, RawContextInput } from './intelligence/contextImportanceEngine';
 import { evaluateEvidence } from './intelligence/evidenceLayer';
 import { equalizeContext } from './intelligence/capabilityEqualizer';
-import { evaluateQualityGate } from './intelligence/qualityGate';
+import { evaluateQualityGate, QualityGateResult } from './intelligence/qualityGate';
 import { detectAgentFailure } from './intelligence/failureDetector';
 import { runBenchmarkSuite } from './benchmark/benchmarkRunner';
-import { createOptimizationReceipt, getLastOptimizationReceipt } from './intelligence/optimizationMetadata';
-import { CompressionTier, ContextItemDisposition, TaskProfile, WorkspaceConfig } from './types';
+import {
+  createOptimizationReceipt,
+  getLastOptimizationReceipt,
+  setLastOptimizationReceipt
+} from './intelligence/optimizationMetadata';
+import { evaluateEconomicDecision, OptimizableTier } from './intelligence/economicDecisionService';
+import { EconomicsAggregator } from './intelligence/economicsAggregator';
+import { CompressionTier, ContextItemDisposition, OptimizationReceipt, TaskProfile, WorkspaceConfig } from './types';
 
 function globToRegex(pattern: string): RegExp {
   const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
@@ -96,8 +103,8 @@ export class McpCompressionServer {
     
     this.server = new Server(
       {
-        name: 'tokenist',
-        version: '6.0.0',
+        name: 'shanaxon-mcp',
+        version: '6.1.0',
       },
       {
         capabilities: {
@@ -121,9 +128,61 @@ export class McpCompressionServer {
     }
     
     await this.cache.loadFromDisk();
+    await this.retrieveCache.loadFromDisk();
+    EconomicsAggregator.getInstance().setLedgerPath(
+      path.resolve(this.workspaceRoot, '.shanaxon', 'economics_ledger.json')
+    );
     await this.engine.init();
 
     this.isInitialized = true;
+  }
+
+  private isLexicallyInWorkspace(targetPath: string): boolean {
+    const absTarget = path.isAbsolute(targetPath)
+      ? path.resolve(targetPath)
+      : path.resolve(this.workspaceRoot, targetPath);
+    return this.workspaceManager.getWorkspaceRoots().some((root) => {
+      const rel = path.relative(root, absTarget);
+      return !rel.startsWith('..') && !path.isAbsolute(rel);
+    });
+  }
+
+  private async resolveAuthorizedPath(rawPath: string, requireExisting = true): Promise<{ normalizedPath: string; workspaceRoot: string }> {
+    const normalizedPath = normalizePath(rawPath);
+    if (!normalizedPath) {
+      throw new McpError(ErrorCode.InvalidParams, 'Access Denied: Empty path provided.');
+    }
+    if (isSensitiveFile(normalizedPath)) {
+      throw new McpError(ErrorCode.InvalidParams, `Access Denied: Sensitive file blocked by Shanaxon guardrails: ${normalizedPath}`);
+    }
+    if (!this.isLexicallyInWorkspace(normalizedPath)) {
+      throw new McpError(ErrorCode.InvalidParams, `Access Denied: Path is outside allowed workspace boundaries: ${normalizedPath}`);
+    }
+
+    const validatedRoot = await this.workspaceManager.validateFileAccess(normalizedPath);
+    if (!validatedRoot) {
+      if (!requireExisting) {
+        return {
+          normalizedPath,
+          workspaceRoot: this.workspaceManager.findWorkspaceForFile(normalizedPath),
+        };
+      }
+      throw new McpError(
+        ErrorCode.InvalidParams,
+        `Access Denied: Path is inaccessible, escaped workspace boundaries, or blocked: ${normalizedPath}`
+      );
+    }
+
+    return { normalizedPath, workspaceRoot: validatedRoot };
+  }
+
+  private persistReceiptAsync(receipt: OptimizationReceipt): void {
+    setLastOptimizationReceipt(receipt);
+    Promise.resolve()
+      .then(() => {
+        EconomicsAggregator.getInstance().recordReceipt(receipt);
+      })
+      .catch(() => {});
   }
 
   private async getImportGraph(): Promise<ImportGraph> {
@@ -266,11 +325,11 @@ export class McpCompressionServer {
             },
           },
 
-          // --- TOKENIST v2 REVOLUTIONARY TOOLS ---
+          // --- SHANAXON v2 REVOLUTIONARY TOOLS ---
           {
             name: 'retrieve_original',
             description:
-              'Retrieves the original uncompressed content for a given retrieve hash marker. Use when compressed output contains [tokenist:retrieve hash=<hash>] and you need the full uncompressed source code.',
+              'Retrieves the original uncompressed content for a given retrieve hash marker. Use when compressed output contains [shanaxon:retrieve hash=<hash>] and you need the full uncompressed source code.',
             inputSchema: {
               type: 'object',
               properties: {
@@ -364,14 +423,14 @@ export class McpCompressionServer {
           {
             name: 'get_context_receipt',
             description:
-              'Returns the full session audit trail of all Tokenist operations: files processed, compression tiers applied, tokens saved, and budget utilization per request.',
+              'Returns the full session audit trail of all Shanaxon operations: files processed, compression tiers applied, tokens saved, and budget utilization per request.',
             inputSchema: {
               type: 'object',
               properties: {},
             },
           },
 
-          // --- TOKENIST v6.0 CONTEXT INTELLIGENCE & CAPABILITY EQUALIZATION TOOLS ---
+          // --- SHANAXON v6.0 CONTEXT INTELLIGENCE & CAPABILITY EQUALIZATION TOOLS ---
           {
             name: 'analyze_task',
             description:
@@ -521,7 +580,7 @@ export class McpCompressionServer {
           {
             name: 'run_benchmark',
             description:
-              'Runs the Tokenist 16-scenario benchmark suite validating task classification, model policies, memory operations, context scoring, evidence evaluation, quality gate, and failure detection.',
+              'Runs the Shanaxon 16-scenario benchmark suite validating task classification, model policies, memory operations, context scoring, evidence evaluation, quality gate, and failure detection.',
             inputSchema: {
               type: 'object',
               properties: {},
@@ -530,7 +589,7 @@ export class McpCompressionServer {
           {
             name: 'get_optimization_receipt',
             description:
-              'Retrieves the last generated Tokenist v6.0 OptimizationReceipt containing quality gate status, token savings, evidence completeness, and execution telemetry.',
+              'Retrieves the last generated Shanaxon v6.0 OptimizationReceipt containing quality gate status, token savings, evidence completeness, and execution telemetry.',
             inputSchema: {
               type: 'object',
               properties: {},
@@ -555,8 +614,8 @@ export class McpCompressionServer {
           const semanticQuery = args?.semanticQuery ? String(args.semanticQuery) : undefined;
           const activePrompt = args?.activePrompt ? String(args.activePrompt) : undefined;
 
-          const normalizedDir = normalizePath(rawDirPath);
-          const activeWorkspaceRoot = this.workspaceManager.findWorkspaceForFile(normalizedDir);
+          const { normalizedPath: normalizedDir, workspaceRoot: activeWorkspaceRoot } =
+            await this.resolveAuthorizedPath(rawDirPath, true);
           const result = await this.fetchRepositoryMap(
             normalizedDir,
             level,
@@ -577,9 +636,8 @@ export class McpCompressionServer {
           const tier = (args?.compressionTier as 'normal' | 'medium' | 'aggressive') || config.defaultTier;
           const maxBudget = args?.maxTokenBudget ? Number(args.maxTokenBudget) : config.maxTokenBudget;
 
-          const normalizedFilePath = normalizePath(rawPath);
-          const activeWorkspaceRoot = this.workspaceManager.findWorkspaceForFile(normalizedFilePath);
-          
+          const { normalizedPath: normalizedFilePath } = await this.resolveAuthorizedPath(rawPath, false);
+
           let fileCode = '';
           try {
             fileCode = await fs.readFile(normalizedFilePath, 'utf-8');
@@ -590,115 +648,201 @@ export class McpCompressionServer {
             };
           }
 
-          let activeTier = tier;
-          
-          if (config.enableUsageLearning && !hasExplicitTier) {
-            activeTier = getAutoTunedTier(normalizedFilePath, this.usageTracker, tier);
-            this.usageTracker.recordAccess(normalizedFilePath);
-          } else if (config.gitAwareTiers && !hasExplicitTier) {
-            activeTier = await getGitAwareTier(normalizedFilePath, activeWorkspaceRoot, tier);
-          }
+          const { workspaceRoot: activeWorkspaceRoot } = await this.resolveAuthorizedPath(normalizedFilePath, true);
 
-          // Apply v6.0 Model Policy Tier Cap
-          if (!hasExplicitTier) {
-            activeTier = adjustTierForModel(activeTier, config.activeModel || 'claude-3-5-sonnet');
-          }
+          const activePromptStr = args?.activePrompt ? String(args.activePrompt) : undefined;
+          const qualityFloor = config.economics?.qualityFloor ?? config.qualityGateMinRetention ?? 0.85;
+          const taskProfile: TaskProfile = activePromptStr ? classifyTask(activePromptStr) : {
+            taskType: 'unknown',
+            complexityScore: 0.5,
+            confidence: 0.5,
+            detectedKeywords: [],
+            recommendedBudgetMultiplier: 1.0,
+            minRetentionThreshold: qualityFloor,
+            reasoning: 'Default fallback task profile'
+          };
 
-          let compressedContent = await this.cache.get(normalizedFilePath, activeTier, fileCode);
-          if (!compressedContent) {
-            const normal = await this.engine.compress(fileCode, normalizedFilePath, 'normal');
-            const medium = await this.engine.compress(fileCode, normalizedFilePath, 'medium');
-            const aggressive = await this.engine.compress(fileCode, normalizedFilePath, 'aggressive');
-            
-            await this.cache.set(normalizedFilePath, { normal, medium, aggressive }, fileCode);
-            compressedContent = activeTier === 'normal' ? normal : activeTier === 'medium' ? medium : aggressive;
-          }
-
-          // Apply v6.0 Quality Gate Evaluation
+          let activeTier: 'normal' | 'medium' | 'aggressive' | 'omitted' = tier;
+          let compressedContent = '';
           let qualityPassed = true;
           let qualityScore = 1.0;
-          const qualityWarnings: string[] = [];
+          let qualityWarnings: string[] = [];
+          let econDecision: 'OPTIMIZE' | 'FALLBACK_BASELINE' = 'OPTIMIZE';
 
-          if (config.enableQualityGate !== false) {
-            const activePromptStr = args?.activePrompt ? String(args.activePrompt) : undefined;
-            const taskProfile = activePromptStr ? classifyTask(activePromptStr) : {
-              taskType: 'unknown' as const,
-              complexityScore: 0.5,
-              confidence: 0.5,
-              detectedKeywords: [],
-              recommendedBudgetMultiplier: 1.0,
-              minRetentionThreshold: config.qualityGateMinRetention || 0.85,
-              reasoning: 'Default fallback task profile'
-            };
+          // Check AstCache for all 3 tiers; measure compression wall-clock time only on cache misses
+          let cachedNormal = await this.cache.get(normalizedFilePath, 'normal', fileCode);
+          let cachedMedium = await this.cache.get(normalizedFilePath, 'medium', fileCode);
+          let cachedAggressive = await this.cache.get(normalizedFilePath, 'aggressive', fileCode);
 
-            const gateResult = evaluateQualityGate(
-              fileCode,
-              compressedContent,
-              taskProfile,
-              activeTier,
-              config.qualityGateMinRetention
-            );
-
-            qualityPassed = gateResult.passed;
-            qualityScore = gateResult.score;
-            if (gateResult.warnings.length > 0) qualityWarnings.push(...gateResult.warnings);
-
-            if (!gateResult.passed && gateResult.fallbackTier && gateResult.fallbackTier !== activeTier) {
-              activeTier = gateResult.fallbackTier;
-              let fallbackContent = await this.cache.get(normalizedFilePath, activeTier, fileCode);
-              if (!fallbackContent) {
-                fallbackContent = await this.engine.compress(fileCode, normalizedFilePath, activeTier);
-              }
-              compressedContent = fallbackContent;
+          let optimizerDurationMs = 0;
+          if (cachedNormal === null || cachedMedium === null || cachedAggressive === null) {
+            const t0 = performance.now();
+            if (cachedNormal === null) {
+              cachedNormal = await this.engine.compress(fileCode, normalizedFilePath, 'normal');
             }
-          }
-
-          // Inject CCR retrieve marker for compressed tiers
-          if (activeTier !== 'normal') {
-            compressedContent = this.retrieveCache.injectMarker(
-              compressedContent,
-              fileCode,
+            if (cachedMedium === null) {
+              cachedMedium = await this.engine.compress(fileCode, normalizedFilePath, 'medium');
+            }
+            if (cachedAggressive === null) {
+              cachedAggressive = await this.engine.compress(fileCode, normalizedFilePath, 'aggressive');
+            }
+            optimizerDurationMs = Math.max(0, performance.now() - t0);
+            await this.cache.set(
               normalizedFilePath,
-              activeTier
+              { normal: cachedNormal, medium: cachedMedium, aggressive: cachedAggressive },
+              fileCode
             );
           }
 
-          if (maxBudget) {
-            const { results } = await enforceBudget(
-              [{ filePath: normalizedFilePath, code: fileCode }],
-              this.engine,
-              maxBudget
-            );
-            if (results.length > 0) {
-              compressedContent = results[0].content;
-              activeTier = results[0].tier as any;
+          if (config.economics?.enabled !== false) {
+            const candidateOutputs: Partial<Record<OptimizableTier, string>> =
+              hasExplicitTier && tier === 'normal'
+                ? { normal: cachedNormal }
+                : hasExplicitTier && tier === 'medium'
+                  ? { normal: cachedNormal, medium: cachedMedium }
+                  : { normal: cachedNormal, medium: cachedMedium, aggressive: cachedAggressive };
+
+            const decisionResult = evaluateEconomicDecision({
+              workspaceRoot: activeWorkspaceRoot,
+              config,
+              activeModel: config.activeModel,
+              baselineText: fileCode,
+              filePath: normalizedFilePath,
+              candidateOutputs,
+              taskProfile,
+              optimizerDurationMs,
+              itemsIncluded: 1,
+              itemsSummarized: 0,
+              itemsOmitted: 0,
+            });
+
+            econDecision = decisionResult.decision;
+            activeTier = decisionResult.selectedTier;
+            compressedContent = decisionResult.outputText;
+            qualityPassed = decisionResult.qualityPassed;
+            qualityScore = decisionResult.qualityScore;
+            qualityWarnings = decisionResult.warnings;
+
+            if (maxBudget && estimateTokens(compressedContent, normalizedFilePath) > maxBudget) {
+              const { results } = await enforceBudget(
+                [{ filePath: normalizedFilePath, code: fileCode }],
+                this.engine,
+                maxBudget,
+                undefined,
+                {
+                  activeModel: config.activeModel,
+                  enableQualityGate: config.enableQualityGate !== false,
+                  taskProfile,
+                  qualityGateMinRetention: qualityFloor,
+                }
+              );
+              if (results.length > 0) {
+                compressedContent = results[0].content;
+                activeTier = results[0].tier;
+              }
             }
+
+            if (econDecision === 'OPTIMIZE' && activeTier !== 'normal' && activeTier !== 'omitted') {
+              compressedContent = this.retrieveCache.injectMarker(
+                compressedContent,
+                fileCode,
+                normalizedFilePath,
+                activeTier
+              );
+            }
+
+            this.persistReceiptAsync(decisionResult.receipt);
+          } else {
+            if (config.enableUsageLearning && !hasExplicitTier) {
+              activeTier = getAutoTunedTier(normalizedFilePath, this.usageTracker, tier);
+              this.usageTracker.recordAccess(normalizedFilePath);
+            } else if (config.gitAwareTiers && !hasExplicitTier) {
+              activeTier = await getGitAwareTier(normalizedFilePath, activeWorkspaceRoot, tier);
+            }
+
+            if (!hasExplicitTier) {
+              activeTier = adjustTierForModel(activeTier, config.activeModel || 'claude-3-5-sonnet') as any;
+            }
+
+            compressedContent = activeTier === 'normal' ? cachedNormal : activeTier === 'medium' ? cachedMedium : cachedAggressive;
+
+            if (config.enableQualityGate !== false) {
+              const gateResult = evaluateQualityGate(
+                fileCode,
+                compressedContent,
+                taskProfile,
+                activeTier,
+                config.qualityGateMinRetention
+              );
+
+              qualityPassed = gateResult.passed;
+              qualityScore = gateResult.score;
+              if (gateResult.warnings.length > 0) qualityWarnings.push(...gateResult.warnings);
+
+              if (!gateResult.passed && gateResult.fallbackTier && gateResult.fallbackTier !== activeTier) {
+                activeTier = gateResult.fallbackTier as any;
+                compressedContent =
+                  activeTier === 'normal' ? cachedNormal : activeTier === 'medium' ? cachedMedium : cachedAggressive;
+              }
+            }
+
+            if (activeTier !== 'normal') {
+              compressedContent = this.retrieveCache.injectMarker(
+                compressedContent,
+                fileCode,
+                normalizedFilePath,
+                activeTier
+              );
+            }
+
+            if (maxBudget) {
+              const { results } = await enforceBudget(
+                [{ filePath: normalizedFilePath, code: fileCode }],
+                this.engine,
+                maxBudget,
+                undefined,
+                {
+                  activeModel: config.activeModel,
+                  enableQualityGate: config.enableQualityGate !== false,
+                  taskProfile,
+                  qualityGateMinRetention: qualityFloor,
+                }
+              );
+              if (results.length > 0) {
+                compressedContent = results[0].content;
+                activeTier = results[0].tier;
+              }
+            }
+
+            const rawTokensFallback = estimateTokens(fileCode, normalizedFilePath);
+            const compTokensFallback = estimateTokens(compressedContent, normalizedFilePath);
+            const optReceipt = createOptimizationReceipt({
+              timestamp: new Date().toISOString(),
+              taskType: taskProfile.taskType,
+              model: config.activeModel || 'claude-3-5-sonnet',
+              originalTokenEstimate: rawTokensFallback,
+              finalTokenEstimate: compTokensFallback,
+              compressionRatio: compTokensFallback > 0 ? parseFloat((rawTokensFallback / compTokensFallback).toFixed(2)) : 1.0,
+              savingsPct: rawTokensFallback > 0 ? parseFloat((((rawTokensFallback - compTokensFallback) / rawTokensFallback) * 100).toFixed(2)) : 0,
+              qualityGatePassed: qualityPassed,
+              qualityScore,
+              evidenceCompleteness: 1.0,
+              itemsIncluded: 1,
+              itemsSummarized: 0,
+              itemsOmitted: 0,
+              executionTimeMs: Math.round(optimizerDurationMs),
+              warnings: qualityWarnings
+            });
+            this.persistReceiptAsync(optReceipt);
           }
 
           await this.cache.flushToDisk();
-          this.metricsCollector.logMetrics(normalizedFilePath, fileCode, compressedContent, activeTier, 0, config.telemetryRotationLimit).catch(() => {});
+          this.metricsCollector
+            .logMetrics(normalizedFilePath, fileCode, compressedContent, activeTier, Math.round(optimizerDurationMs), config.telemetryRotationLimit)
+            .catch(() => {});
 
-          // Generate Context Receipt
           const rawTokens = estimateTokens(fileCode, normalizedFilePath);
           const compTokens = estimateTokens(compressedContent, normalizedFilePath);
-          
-          createOptimizationReceipt({
-            timestamp: new Date().toISOString(),
-            taskType: 'unknown',
-            model: config.activeModel || 'claude-3-5-sonnet',
-            originalTokenEstimate: rawTokens,
-            finalTokenEstimate: compTokens,
-            compressionRatio: compTokens > 0 ? parseFloat((rawTokens / compTokens).toFixed(2)) : 1.0,
-            savingsPct: rawTokens > 0 ? parseFloat((((rawTokens - compTokens) / rawTokens) * 100).toFixed(2)) : 0,
-            qualityGatePassed: qualityPassed,
-            qualityScore,
-            evidenceCompleteness: 1.0,
-            itemsIncluded: 1,
-            itemsSummarized: 0,
-            itemsOmitted: 0,
-            executionTimeMs: 1,
-            warnings: qualityWarnings
-          });
 
           const receipt = this.receiptGenerator.generate(
             'read_optimized_file',
@@ -709,7 +853,7 @@ export class McpCompressionServer {
                 rawTokens,
                 compressedTokens: compTokens,
                 savingsPct: rawTokens > 0 ? parseFloat((((rawTokens - compTokens) / rawTokens) * 100).toFixed(2)) : 0,
-                hasRetrieveMarker: compressedContent.includes('[tokenist:retrieve'),
+                hasRetrieveMarker: compressedContent.includes('[shanaxon:retrieve'),
               },
             ],
             [],
@@ -726,8 +870,8 @@ export class McpCompressionServer {
         if (name === 'get_file_diff_context') {
           const rawPath = String(args?.filePath);
           const contextLines = args?.contextLines ? Number(args.contextLines) : 10;
-          const normalizedFilePath = normalizePath(rawPath);
-          const activeWorkspaceRoot = this.workspaceManager.findWorkspaceForFile(normalizedFilePath);
+          const { normalizedPath: normalizedFilePath, workspaceRoot: activeWorkspaceRoot } =
+            await this.resolveAuthorizedPath(rawPath, true);
 
           const diffResult = await getFileDiffContext(normalizedFilePath, activeWorkspaceRoot, contextLines);
           return {
@@ -780,7 +924,7 @@ export class McpCompressionServer {
           };
         }
 
-        // --- HANDLERS FOR NEW TOKENIST v2 TOOLS ---
+        // --- HANDLERS FOR NEW SHANAXON v2 TOOLS ---
 
         if (name === 'retrieve_original') {
           const hash = String(args?.hash);
@@ -795,7 +939,7 @@ export class McpCompressionServer {
             content: [
               {
                 type: 'text',
-                text: `[Tokenist CCR] Restored original uncompressed source for ${entry.filePath} (Tier was: ${entry.tier})\n\n${entry.original}`,
+                text: `[Shanaxon CCR] Restored original uncompressed source for ${entry.filePath} (Tier was: ${entry.tier})\n\n${entry.original}`,
               },
             ],
           };
@@ -855,8 +999,8 @@ export class McpCompressionServer {
         if (name === 'get_blast_radius') {
           const rawPath = String(args?.filePath);
           const maxHops = args?.maxHops ? Number(args.maxHops) : 3;
-          const normalizedFilePath = normalizePath(rawPath);
-          const activeWorkspaceRoot = this.workspaceManager.findWorkspaceForFile(normalizedFilePath);
+          const { normalizedPath: normalizedFilePath, workspaceRoot: activeWorkspaceRoot } =
+            await this.resolveAuthorizedPath(rawPath, true);
 
           const importGraph = await this.getImportGraph();
           const indexer = new WorkspaceIndexer(activeWorkspaceRoot);
@@ -873,7 +1017,7 @@ export class McpCompressionServer {
 
           const lines: string[] = [];
           lines.push('==================================================');
-          lines.push(`TOKENIST MULTI-HOP BLAST RADIUS ANALYSIS`);
+          lines.push(`SHANAXON MULTI-HOP BLAST RADIUS ANALYSIS`);
           lines.push('==================================================');
           lines.push(`Target File          : ${path.relative(activeWorkspaceRoot, report.targetFile)}`);
           lines.push(`Blast Radius Risk    : ${report.riskLevel.toUpperCase()}`);
@@ -1203,14 +1347,38 @@ export class McpCompressionServer {
     const regularInputs = orderedInputs.filter((f) => !isFilePinned(f.filePath));
 
     const finalResults: { filePath: string; content: string; tier: string }[] = [];
+    const qualityFloor = config.economics?.qualityFloor ?? config.qualityGateMinRetention ?? 0.85;
+    const effectiveTaskProfile: TaskProfile = intel.taskProfile || {
+      taskType: 'unknown',
+      complexityScore: 0.5,
+      confidence: 0.5,
+      detectedKeywords: [],
+      recommendedBudgetMultiplier: 1.0,
+      minRetentionThreshold: qualityFloor,
+      reasoning: 'Default fallback task profile',
+    };
+
+    const importanceScoresMap = new Map<string, number>();
+    for (const f of fileInputs) {
+      const imp = importanceMap.get(path.resolve(f.filePath));
+      if (imp !== undefined) {
+        importanceScoresMap.set(f.filePath, imp.score);
+        importanceScoresMap.set(path.resolve(f.filePath), imp.score);
+      }
+    }
+
+    let compressionDurationMs = 0;
+    const perFileQualityResults: QualityGateResult[] = [];
 
     let pinnedTokensTotal = 0;
     for (const input of pinnedInputs) {
       let content = await this.cache.get(input.filePath, 'normal', input.code);
       if (!content) {
+        const t0 = performance.now();
         content = await this.engine.compress(input.code, input.filePath, 'normal');
+        compressionDurationMs += Math.max(0, performance.now() - t0);
       }
-      pinnedTokensTotal += estimateTokens(content);
+      pinnedTokensTotal += estimateTokens(content, input.filePath);
       finalResults.push({
         filePath: input.filePath,
         content,
@@ -1221,13 +1389,36 @@ export class McpCompressionServer {
     const remainingBudget = maxTokenBudget ? Math.max(0, maxTokenBudget - pinnedTokensTotal) : undefined;
 
     if (remainingBudget !== undefined) {
-      const { results } = await enforceBudget(regularInputs, this.engine, remainingBudget);
+      const initialTiers = new Map<string, CompressionTier>();
+      for (const input of regularInputs) {
+        const disp = intel.dispositionMap.get(path.resolve(input.filePath));
+        if (disp === 'must_include') initialTiers.set(input.filePath, 'normal');
+        else if (disp === 'summarize') initialTiers.set(input.filePath, 'medium');
+        else if (disp === 'omit') initialTiers.set(input.filePath, 'omitted');
+      }
+
+      const t0 = performance.now();
+      const { results } = await enforceBudget(regularInputs, this.engine, remainingBudget, importanceScoresMap, {
+        activeModel: config.activeModel,
+        enableQualityGate: config.enableQualityGate !== false,
+        taskProfile: effectiveTaskProfile,
+        qualityGateMinRetention: qualityFloor,
+        initialTiers,
+      });
+      compressionDurationMs += Math.max(0, performance.now() - t0);
+
       results.forEach((r) => {
         finalResults.push({
           filePath: r.filePath,
           content: r.content,
           tier: r.tier,
         });
+        if (r.tier !== 'omitted' && config.enableQualityGate !== false) {
+          const rawCode = regularInputs.find((f) => f.filePath === r.filePath)?.code || '';
+          perFileQualityResults.push(
+            evaluateQualityGate(rawCode, r.content, effectiveTaskProfile, r.tier, qualityFloor)
+          );
+        }
       });
     } else {
       for (const input of regularInputs) {
@@ -1243,7 +1434,7 @@ export class McpCompressionServer {
         } else if (disposition === 'omit') {
           finalResults.push({
             filePath: input.filePath,
-            content: '[Omitted by Tokenist Context Intelligence Engine]',
+            content: '[Omitted by Shanaxon Context Intelligence Engine]',
             tier: 'omitted',
           });
           continue;
@@ -1257,34 +1448,43 @@ export class McpCompressionServer {
 
         // Apply Model Policy Tier Cap
         if (!hasExplicitTier) {
-          activeTier = adjustTierForModel(activeTier, config.activeModel || 'claude-3-5-sonnet');
+          activeTier = adjustTierForModel(activeTier, config.activeModel || 'claude-3-5-sonnet') as any;
         }
 
         let content = await this.cache.get(input.filePath, activeTier, input.code);
         if (!content) {
+          const t0 = performance.now();
           const normal = await this.engine.compress(input.code, input.filePath, 'normal');
           const medium = await this.engine.compress(input.code, input.filePath, 'medium');
           const aggressive = await this.engine.compress(input.code, input.filePath, 'aggressive');
+          compressionDurationMs += Math.max(0, performance.now() - t0);
           await this.cache.set(input.filePath, { normal, medium, aggressive }, input.code);
           content = activeTier === 'normal' ? normal : activeTier === 'medium' ? medium : aggressive;
         }
 
         // Apply Quality Gate per file
-        if (config.enableQualityGate !== false && intel.taskProfile) {
+        if (config.enableQualityGate !== false) {
           const qg = evaluateQualityGate(
             input.code,
             content,
-            intel.taskProfile,
+            effectiveTaskProfile,
             activeTier,
-            config.qualityGateMinRetention
+            qualityFloor
           );
           if (!qg.passed && qg.fallbackTier && qg.fallbackTier !== activeTier) {
-            activeTier = qg.fallbackTier;
+            activeTier = qg.fallbackTier as any;
             let safer = await this.cache.get(input.filePath, activeTier, input.code);
             if (!safer) {
+              const t0 = performance.now();
               safer = await this.engine.compress(input.code, input.filePath, activeTier);
+              compressionDurationMs += Math.max(0, performance.now() - t0);
             }
             content = safer;
+            perFileQualityResults.push(
+              evaluateQualityGate(input.code, content, effectiveTaskProfile, activeTier, qualityFloor)
+            );
+          } else {
+            perFileQualityResults.push(qg);
           }
         }
 
@@ -1298,74 +1498,141 @@ export class McpCompressionServer {
 
     await this.cache.flushToDisk();
 
-    // Inject CCR markers for compressed tiers
-    for (const res of finalResults) {
-      if (res.tier !== 'normal' && res.tier !== 'omitted') {
-        const origCode = fileInputs.find((f) => f.filePath === res.filePath)?.code || '';
-        res.content = this.retrieveCache.injectMarker(res.content, origCode, res.filePath, res.tier);
+    const formatMapBody = (entries: { filePath: string; content: string; tier: string }[]): string => {
+      const lines: string[] = [];
+      lines.push(`Directory Structure Map for: ${path.relative(activeWorkspaceRoot, dirPath) || '.'}`);
+      lines.push(`Requested Tier: ${tier}`);
+      if (maxTokenBudget) {
+        lines.push(`Max Token Budget: ${maxTokenBudget}`);
       }
-    }
-
-    for (const res of finalResults) {
-      if (res.tier !== 'omitted') {
-        const inputCode = fileInputs.find((f) => f.filePath === res.filePath)?.code || '';
-        this.metricsCollector
-          .logMetrics(res.filePath, inputCode, res.content, res.tier, 0, config.telemetryRotationLimit)
-          .catch(() => {});
+      if (semanticQuery) {
+        lines.push(`Semantic Filter: "${semanticQuery}"`);
       }
-    }
+      lines.push('==================================================');
 
-    const results: string[] = [];
-    results.push(`Directory Structure Map for: ${path.relative(activeWorkspaceRoot, dirPath) || '.'}`);
-    results.push(`Requested Tier: ${tier}`);
-    if (maxTokenBudget) {
-      results.push(`Max Token Budget: ${maxTokenBudget}`);
-    }
-    if (semanticQuery) {
-      results.push(`Semantic Filter: "${semanticQuery}"`);
-    }
-    results.push('==================================================');
+      for (const res of entries) {
+        const relPath = path.relative(activeWorkspaceRoot, res.filePath);
+        lines.push(`\nFile: ${relPath} (Allocated Tier: ${res.tier})`);
+        lines.push('--------------------------------------------------');
+        lines.push(res.content);
+        lines.push('--------------------------------------------------');
+      }
+      return lines.join('\n');
+    };
 
-    for (const res of finalResults) {
-      const relPath = path.relative(activeWorkspaceRoot, res.filePath);
-      results.push(`\nFile: ${relPath} (Allocated Tier: ${res.tier})`);
-      results.push('--------------------------------------------------');
-      results.push(res.content);
-      results.push('--------------------------------------------------');
-    }
+    const baselineEntries = orderedInputs.map((f) => ({
+      filePath: f.filePath,
+      content: f.code,
+      tier: 'normal',
+    }));
+    const baselineMapText = formatMapBody(baselineEntries);
+    const optimizedMapText = formatMapBody(finalResults);
 
-    // Create v6.0 Optimization Receipt
-    const rawTotalTokens = fileInputs.reduce((sum, f) => sum + estimateTokens(f.code, f.filePath), 0);
-    const finalTotalTokens = finalResults
-      .filter((r) => r.tier !== 'omitted')
-      .reduce((sum, r) => sum + estimateTokens(r.content, r.filePath), 0);
-
+    let effectiveResults = finalResults;
     const includedCount = finalResults.filter((r) => r.tier === 'normal').length;
     const summarizedCount = finalResults.filter((r) => r.tier === 'medium' || r.tier === 'aggressive').length;
     const omittedCount = finalResults.filter((r) => r.tier === 'omitted').length;
 
-    createOptimizationReceipt({
-      timestamp: new Date().toISOString(),
-      taskType: intel.taskProfile ? intel.taskProfile.taskType : 'unknown',
-      model: config.activeModel || 'claude-3-5-sonnet',
-      originalTokenEstimate: rawTotalTokens,
-      finalTokenEstimate: finalTotalTokens,
-      compressionRatio: finalTotalTokens > 0 ? parseFloat((rawTotalTokens / finalTotalTokens).toFixed(2)) : 1.0,
-      savingsPct: rawTotalTokens > 0 ? parseFloat((((rawTotalTokens - finalTotalTokens) / rawTotalTokens) * 100).toFixed(2)) : 0,
-      qualityGatePassed: true,
-      qualityScore: 1.0,
-      evidenceCompleteness: 1.0,
-      itemsIncluded: includedCount,
-      itemsSummarized: summarizedCount,
-      itemsOmitted: omittedCount,
-      executionTimeMs: 1,
-      warnings: intel.taskProfile ? [intel.taskProfile.reasoning] : []
-    });
+    if (config.economics?.enabled !== false) {
+      const hasAggressive = finalResults.some((r) => r.tier === 'aggressive');
+      const hasMedium = finalResults.some((r) => r.tier === 'medium');
+      const aggregateTier: OptimizableTier = hasAggressive ? 'aggressive' : hasMedium ? 'medium' : 'normal';
+
+      const avg = (vals: number[]) => (vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 1.0);
+      const aggregateQuality: QualityGateResult | undefined =
+        perFileQualityResults.length > 0
+          ? {
+              passed: perFileQualityResults.every((q) => q.passed),
+              score: Number(avg(perFileQualityResults.map((q) => q.score)).toFixed(4)),
+              retentionPct: Number((avg(perFileQualityResults.map((q) => q.score)) * 100).toFixed(1)),
+              warnings: perFileQualityResults.flatMap((q) => q.warnings),
+              reason: 'Aggregated per-file map quality evaluation',
+              signals: {
+                symbolScore: Number(avg(perFileQualityResults.map((q) => q.signals?.symbolScore ?? 1.0)).toFixed(4)),
+                dependencyScore: Number(avg(perFileQualityResults.map((q) => q.signals?.dependencyScore ?? 1.0)).toFixed(4)),
+                signatureScore: Number(avg(perFileQualityResults.map((q) => q.signals?.signatureScore ?? 1.0)).toFixed(4)),
+                constraintCommentScore: Number(
+                  avg(perFileQualityResults.map((q) => q.signals?.constraintCommentScore ?? 1.0)).toFixed(4)
+                ),
+              },
+            }
+          : undefined;
+
+      const econDecision = evaluateEconomicDecision({
+        workspaceRoot: activeWorkspaceRoot,
+        config,
+        activeModel: config.activeModel,
+        baselineText: baselineMapText,
+        candidateOutputs: { [aggregateTier]: optimizedMapText },
+        qualityScores: aggregateQuality ? { [aggregateTier]: aggregateQuality } : undefined,
+        taskProfile: effectiveTaskProfile,
+        optimizerDurationMs: compressionDurationMs,
+        itemsIncluded: includedCount,
+        itemsSummarized: summarizedCount,
+        itemsOmitted: omittedCount,
+      });
+
+      if (econDecision.decision === 'OPTIMIZE') {
+        for (const res of effectiveResults) {
+          if (res.tier !== 'normal' && res.tier !== 'omitted') {
+            const origCode = fileInputs.find((f) => f.filePath === res.filePath)?.code || '';
+            res.content = this.retrieveCache.injectMarker(res.content, origCode, res.filePath, res.tier);
+          }
+        }
+      } else {
+        // FALLBACK_BASELINE: serve uncompressed baseline map unless explicit maxTokenBudget requires budget-enforced safety
+        if (!maxTokenBudget || estimateTokens(baselineMapText) <= maxTokenBudget) {
+          effectiveResults = baselineEntries;
+        }
+      }
+
+      this.persistReceiptAsync(econDecision.receipt);
+    } else {
+      for (const res of effectiveResults) {
+        if (res.tier !== 'normal' && res.tier !== 'omitted') {
+          const origCode = fileInputs.find((f) => f.filePath === res.filePath)?.code || '';
+          res.content = this.retrieveCache.injectMarker(res.content, origCode, res.filePath, res.tier);
+        }
+      }
+
+      const rawTotalTokens = fileInputs.reduce((sum, f) => sum + estimateTokens(f.code, f.filePath), 0);
+      const finalTotalTokens = effectiveResults
+        .filter((r) => r.tier !== 'omitted')
+        .reduce((sum, r) => sum + estimateTokens(r.content, r.filePath), 0);
+
+      const optReceipt = createOptimizationReceipt({
+        timestamp: new Date().toISOString(),
+        taskType: effectiveTaskProfile.taskType,
+        model: config.activeModel || 'claude-3-5-sonnet',
+        originalTokenEstimate: rawTotalTokens,
+        finalTokenEstimate: finalTotalTokens,
+        compressionRatio: finalTotalTokens > 0 ? parseFloat((rawTotalTokens / finalTotalTokens).toFixed(2)) : 1.0,
+        savingsPct: rawTotalTokens > 0 ? parseFloat((((rawTotalTokens - finalTotalTokens) / rawTotalTokens) * 100).toFixed(2)) : 0,
+        qualityGatePassed: true,
+        qualityScore: 1.0,
+        evidenceCompleteness: 1.0,
+        itemsIncluded: includedCount,
+        itemsSummarized: summarizedCount,
+        itemsOmitted: omittedCount,
+        executionTimeMs: Math.round(compressionDurationMs),
+        warnings: intel.taskProfile ? [intel.taskProfile.reasoning] : []
+      });
+      this.persistReceiptAsync(optReceipt);
+    }
+
+    for (const res of effectiveResults) {
+      if (res.tier !== 'omitted') {
+        const inputCode = fileInputs.find((f) => f.filePath === res.filePath)?.code || '';
+        this.metricsCollector
+          .logMetrics(res.filePath, inputCode, res.content, res.tier, Math.round(compressionDurationMs), config.telemetryRotationLimit)
+          .catch(() => {});
+      }
+    }
 
     // Generate Context Receipt
     const receipt = this.receiptGenerator.generate(
       'fetch_optimized_repository_map',
-      finalResults
+      effectiveResults
         .filter((r) => r.tier !== 'omitted')
         .map((r) => {
           const rawCode = fileInputs.find((f) => f.filePath === r.filePath)?.code || '';
@@ -1377,16 +1644,17 @@ export class McpCompressionServer {
             rawTokens: rawTok,
             compressedTokens: compTok,
             savingsPct: rawTok > 0 ? parseFloat((((rawTok - compTok) / rawTok) * 100).toFixed(2)) : 0,
-            hasRetrieveMarker: r.content.includes('[tokenist:retrieve'),
+            hasRetrieveMarker: r.content.includes('[shanaxon:retrieve'),
           };
         }),
-      finalResults.filter((r) => r.tier === 'omitted').map((r) => r.filePath),
+      effectiveResults.filter((r) => r.tier === 'omitted').map((r) => r.filePath),
       maxTokenBudget || null
     );
 
-    results.push(this.receiptGenerator.formatAsFooter(receipt));
+    const formattedMapBody = formatMapBody(effectiveResults);
+    const footer = this.receiptGenerator.formatAsFooter(receipt);
 
-    return results.join('\n');
+    return `${formattedMapBody}${footer}`;
   }
 }
 
