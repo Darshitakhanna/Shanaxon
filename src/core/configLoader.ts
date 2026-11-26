@@ -17,7 +17,19 @@ const DEFAULT_CONFIG: WorkspaceConfig = {
   maxCacheSizeMb: 10,
   telemetryRotationLimit: 500,
   workspaces: [],
-  enableUsageLearning: false
+  enableUsageLearning: false,
+
+  // v6.0 Context Intelligence Engine defaults (all enabled by default per requirement)
+  activeModel: 'claude-3-7-sonnet',
+  enableIntelligencePipeline: true,
+  enableCapabilityEqualization: true,
+  enableCriticalMemory: true,
+  enableQualityGate: true,
+  qualityGateMinRetention: 0.85,
+  memoryPath: '.tokenist/memory.json',
+  maxMemoryEntries: 500,
+  tenantId: 'local',
+  organizationId: 'default'
 };
 
 let loadedConfig: WorkspaceConfig | null = null;
@@ -72,7 +84,23 @@ export function loadConfig(workspaceRoot: string): Promise<WorkspaceConfig> {
       telemetryRotationLimit: typeof parsed.telemetryRotationLimit === 'number' ? parsed.telemetryRotationLimit : DEFAULT_CONFIG.telemetryRotationLimit,
       workspaces: Array.isArray(parsed.workspaces) ? parsed.workspaces : DEFAULT_CONFIG.workspaces,
       enableUsageLearning: parseBoolEnv(process.env.TOKENIST_USAGE_LEARNING) ??
-        (typeof parsed.enableUsageLearning === 'boolean' ? parsed.enableUsageLearning : DEFAULT_CONFIG.enableUsageLearning)
+        (typeof parsed.enableUsageLearning === 'boolean' ? parsed.enableUsageLearning : DEFAULT_CONFIG.enableUsageLearning),
+
+      // v6.0 Context Intelligence fields
+      activeModel: process.env.TOKENIST_ACTIVE_MODEL || parsed.activeModel || DEFAULT_CONFIG.activeModel,
+      enableIntelligencePipeline: parseBoolEnv(process.env.TOKENIST_INTELLIGENCE_PIPELINE) ??
+        (typeof parsed.enableIntelligencePipeline === 'boolean' ? parsed.enableIntelligencePipeline : DEFAULT_CONFIG.enableIntelligencePipeline),
+      enableCapabilityEqualization: parseBoolEnv(process.env.TOKENIST_CAPABILITY_EQUALIZATION) ??
+        (typeof parsed.enableCapabilityEqualization === 'boolean' ? parsed.enableCapabilityEqualization : DEFAULT_CONFIG.enableCapabilityEqualization),
+      enableCriticalMemory: parseBoolEnv(process.env.TOKENIST_CRITICAL_MEMORY) ??
+        (typeof parsed.enableCriticalMemory === 'boolean' ? parsed.enableCriticalMemory : DEFAULT_CONFIG.enableCriticalMemory),
+      enableQualityGate: parseBoolEnv(process.env.TOKENIST_QUALITY_GATE) ??
+        (typeof parsed.enableQualityGate === 'boolean' ? parsed.enableQualityGate : DEFAULT_CONFIG.enableQualityGate),
+      qualityGateMinRetention: typeof parsed.qualityGateMinRetention === 'number' ? parsed.qualityGateMinRetention : DEFAULT_CONFIG.qualityGateMinRetention,
+      memoryPath: process.env.TOKENIST_MEMORY_PATH || parsed.memoryPath || DEFAULT_CONFIG.memoryPath,
+      maxMemoryEntries: typeof parsed.maxMemoryEntries === 'number' ? parsed.maxMemoryEntries : DEFAULT_CONFIG.maxMemoryEntries,
+      tenantId: process.env.TOKENIST_TENANT_ID || parsed.tenantId || DEFAULT_CONFIG.tenantId,
+      organizationId: process.env.TOKENIST_ORG_ID || parsed.organizationId || DEFAULT_CONFIG.organizationId
     };
 
     return loadedConfig;
@@ -98,7 +126,12 @@ export function getConfig(): WorkspaceConfig {
       enableSemanticRanking: parseBoolEnv(process.env.TOKENIST_SEMANTIC_RANKING) ?? DEFAULT_CONFIG.enableSemanticRanking,
       gitAwareTiers: parseBoolEnv(process.env.TOKENIST_GIT_AWARE_TIERS) ?? DEFAULT_CONFIG.gitAwareTiers,
       pricingModel: process.env.TOKENIST_PRICING_MODEL || DEFAULT_CONFIG.pricingModel,
-      enableUsageLearning: parseBoolEnv(process.env.TOKENIST_USAGE_LEARNING) ?? DEFAULT_CONFIG.enableUsageLearning
+      enableUsageLearning: parseBoolEnv(process.env.TOKENIST_USAGE_LEARNING) ?? DEFAULT_CONFIG.enableUsageLearning,
+      activeModel: process.env.TOKENIST_ACTIVE_MODEL || DEFAULT_CONFIG.activeModel,
+      enableIntelligencePipeline: parseBoolEnv(process.env.TOKENIST_INTELLIGENCE_PIPELINE) ?? DEFAULT_CONFIG.enableIntelligencePipeline,
+      enableCapabilityEqualization: parseBoolEnv(process.env.TOKENIST_CAPABILITY_EQUALIZATION) ?? DEFAULT_CONFIG.enableCapabilityEqualization,
+      enableCriticalMemory: parseBoolEnv(process.env.TOKENIST_CRITICAL_MEMORY) ?? DEFAULT_CONFIG.enableCriticalMemory,
+      enableQualityGate: parseBoolEnv(process.env.TOKENIST_QUALITY_GATE) ?? DEFAULT_CONFIG.enableQualityGate
     };
   }
   return loadedConfig;
@@ -111,3 +144,4 @@ export function resetConfigState() {
   loadedConfig = null;
   loadPromise = null;
 }
+

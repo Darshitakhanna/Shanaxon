@@ -1,9 +1,10 @@
 {
-  "name": "@darshitakhanna15/tokenist",
-  "version": "1.0.0",
+  "name": "tokenist-optimizer",
+  "version": "1.0.1",
   "description": "Tokenist: Open-Source Local Token Optimizer Layer for AI Agents",
   "main": "dist/index.js",
   "bin": {
+    "tokenist-optimizer": "dist/index.js",
     "tokenist": "dist/index.js",
     "tokenist-init": "dist/cli/init.js"
   },

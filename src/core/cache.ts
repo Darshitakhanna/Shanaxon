@@ -1,6 +1,8 @@
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { computeContentHash } from './hashCache';
+import { resolveTenantContext, scopedKey } from '../security/tenantIsolation';
+import { getConfig } from './configLoader';
 
 export interface CacheValue {
   normal: string;
@@ -81,33 +83,35 @@ export class AstCache {
    */
   async get(filePath: string, tier: 'normal' | 'medium' | 'aggressive', currentCodeContent?: string): Promise<string | null> {
     const absPath = path.resolve(filePath);
-    const entry = this.cache.get(absPath);
+    const tenant = resolveTenantContext(getConfig());
+    const cacheKey = scopedKey(absPath, tenant);
+    const entry = this.cache.get(cacheKey);
     if (!entry) return null;
 
     try {
       if (currentCodeContent !== undefined && entry.hash) {
         const currentHash = computeContentHash(currentCodeContent);
         if (currentHash !== entry.hash) {
-          this.cache.delete(absPath);
+          this.cache.delete(cacheKey);
           this.scheduleFlush();
           return null;
         }
       } else {
         const stat = await fs.stat(absPath);
         if (stat.mtimeMs !== entry.mtimeMs) {
-          this.cache.delete(absPath);
+          this.cache.delete(cacheKey);
           this.scheduleFlush();
           return null;
         }
       }
 
       // LRU refresh: reinsert
-      this.cache.delete(absPath);
-      this.cache.set(absPath, entry);
+      this.cache.delete(cacheKey);
+      this.cache.set(cacheKey, entry);
 
       return entry[tier];
     } catch {
-      this.cache.delete(absPath);
+      this.cache.delete(cacheKey);
       this.scheduleFlush();
       return null;
     }
@@ -118,6 +122,8 @@ export class AstCache {
    */
   async set(filePath: string, values: { normal: string; medium: string; aggressive: string }, codeContent?: string): Promise<void> {
     const absPath = path.resolve(filePath);
+    const tenant = resolveTenantContext(getConfig());
+    const cacheKey = scopedKey(absPath, tenant);
     try {
       const stat = await fs.stat(absPath).catch(() => ({ mtimeMs: Date.now() }));
       const hash = codeContent ? computeContentHash(codeContent) : undefined;
@@ -129,7 +135,7 @@ export class AstCache {
         }
       }
 
-      this.cache.set(absPath, {
+      this.cache.set(cacheKey, {
         ...values,
         mtimeMs: stat.mtimeMs,
         hash

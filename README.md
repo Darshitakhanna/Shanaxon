@@ -42,7 +42,7 @@ Add Tokenist to your `claude_desktop_config.json` or `.mcp/config.json`:
   "mcpServers": {
     "tokenist": {
       "command": "npx",
-      "args": ["-y", "@darshitakhanna15/tokenist"]
+      "args": ["-y", "tokenist-optimizer"]
     }
   }
 }
@@ -55,7 +55,7 @@ Add to your workspace `.gemini/mcp.json`:
   "mcpServers": {
     "tokenist": {
       "command": "npx",
-      "args": ["-y", "@darshitakhanna15/tokenist"]
+      "args": ["-y", "tokenist-optimizer"]
     }
   }
 }

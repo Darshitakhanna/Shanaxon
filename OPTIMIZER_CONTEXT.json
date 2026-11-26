@@ -1,0 +1,263 @@
+{
+  "project": {
+    "name": "tokenist-optimizer",
+    "displayName": "Tokenist — Open-Source Local Token Optimizer Layer",
+    "version": "1.0.1",
+    "serverVersion": "5.0.0",
+    "description": "Open-Source Local Token Optimizer Layer for AI Agents",
+    "license": "MIT",
+    "runtime": "Node.js (v18+)",
+    "language": "TypeScript 5.9.3",
+    "repositoryRoot": "j:\\T-V1",
+    "entryPoints": {
+      "mcpStdioServer": "dist/index.js",
+      "mcpServerImplementation": "dist/server.js",
+      "cliInitWizard": "dist/cli/init.js",
+      "cliExportLogs": "dist/cli/export.js",
+      "dashboardServer": "dist/dashboard/server.js",
+      "benchmarkRunner": "src/core/benchmarkReal.ts"
+    }
+  },
+  "architecture": {
+    "type": "Standalone Local Model Context Protocol (MCP) Server",
+    "transport": "stdio JSON-RPC (primary), HTTP server mode (optional via CLI flags)",
+    "layers": [
+      {
+        "layer": "MCP Protocol Handler",
+        "file": "src/server.ts",
+        "status": "IMPLEMENTED"
+      },
+      {
+        "layer": "Workspace Crawler & Indexer",
+        "file": "src/core/workspaceIndexer.ts",
+        "status": "IMPLEMENTED"
+      },
+      {
+        "layer": "AST Compression Engine",
+        "file": "src/core/parser.ts",
+        "status": "IMPLEMENTED"
+      },
+      {
+        "layer": "Dependency & PageRank Scorer",
+        "file": "src/core/importGraph.ts & src/core/importanceScorer.ts",
+        "status": "IMPLEMENTED"
+      },
+      {
+        "layer": "Token Budget & Escalation Manager",
+        "file": "src/core/budgetManager.ts",
+        "status": "IMPLEMENTED"
+      },
+      {
+        "layer": "Semantic & Hybrid Ranker",
+        "file": "src/core/embeddingRanker.ts & src/core/hybridRanker.ts",
+        "status": "IMPLEMENTED"
+      },
+      {
+        "layer": "LRU Content-Hash Cache",
+        "file": "src/core/cache.ts & src/core/hashCache.ts",
+        "status": "IMPLEMENTED"
+      },
+      {
+        "layer": "Telemetry & Cost Reporter",
+        "file": "src/telemetry/metricsCollector.ts & src/telemetry/terminalConsole.ts",
+        "status": "IMPLEMENTED"
+      },
+      {
+        "layer": "VS Code Extension Panel",
+        "file": "vscode-extension/src/extension.ts",
+        "status": "IMPLEMENTED"
+      }
+    ]
+  },
+  "runtime": {
+    "startupTimeMs": "< 200ms",
+    "cacheHitLatencyMs": "< 1ms (memory), < 5ms (disk)",
+    "cacheMissLatencyMs": "0.8ms - 1.8ms per file",
+    "dependencies": {
+      "@modelcontextprotocol/sdk": "^1.29.0",
+      "web-tree-sitter": "^0.20.8",
+      "tree-sitter-wasms": "^0.1.13",
+      "@xenova/transformers": "^1.4.2",
+      "ignore": "^7.0.6"
+    }
+  },
+  "mcp": {
+    "protocolVersion": "1.0.0",
+    "registeredToolsCount": 13,
+    "tools": [
+      "fetch_optimized_repository_map",
+      "read_optimized_file",
+      "get_file_diff_context",
+      "reindex_workspace",
+      "get_token_savings_report",
+      "prune_chat_history",
+      "retrieve_original",
+      "compress_output",
+      "stabilize_prompt",
+      "get_terse_system_prompt",
+      "compress_mcp_schemas",
+      "get_blast_radius",
+      "get_context_receipt"
+    ]
+  },
+  "apis": {
+    "mcpStdio": "JSON-RPC 2.0 over process stdin/stdout",
+    "dashboardHttpApi": "http://localhost:3333/api/metrics (Express/HTTP server)"
+  },
+  "optimizers": [
+    {
+      "name": "AST Code Compression Engine",
+      "type": "Syntactic Code Reduction",
+      "status": "IMPLEMENTED",
+      "tiers": ["normal", "medium", "aggressive"],
+      "supportedLanguages": ["TypeScript", "JavaScript", "Python", "Go", "Rust", "Java", "C#"],
+      "averageSavings": "45% (medium), 84% (aggressive)"
+    },
+    {
+      "name": "PageRank Dependency Centrality Ranker",
+      "type": "Graph-Based Importance Allocation",
+      "status": "IMPLEMENTED",
+      "mechanism": "Power iteration graph analysis ranks imports. High PageRank -> normal tier, low PageRank -> aggressive tier."
+    },
+    {
+      "name": "Greedy Token Budget Allocator",
+      "type": "Token Ceiling Enforcement",
+      "status": "IMPLEMENTED",
+      "mechanism": "Escalates tiers greedily from normal -> medium -> aggressive -> omitted to meet maxTokenBudget."
+    },
+    {
+      "name": "BM25 + ONNX Hybrid Semantic Search",
+      "type": "Query-Adaptive Context Filtering",
+      "status": "IMPLEMENTED",
+      "mechanism": "Ranks files by query relevance using all-MiniLM-L6-v2 embeddings + BM25 keyword matching."
+    },
+    {
+      "name": "CacheAligner Prompt Stabilizer",
+      "type": "KV-Cache Optimization",
+      "status": "IMPLEMENTED",
+      "mechanism": "Relocates dynamic tokens (UUIDs, timestamps) to end of prompt to maximize LLM prefix caching."
+    },
+    {
+      "name": "SmartCrusher Non-Code Content Compressor",
+      "type": "JSON/Log/Stacktrace Compression",
+      "status": "IMPLEMENTED",
+      "mechanism": "Crushes raw JSON API responses, build logs, and stack traces by 60-90%."
+    },
+    {
+      "name": "SchemaCompressor MCP Tool Optimizer",
+      "type": "Tool Definition Compression",
+      "status": "IMPLEMENTED",
+      "mechanism": "Shortens MCP tool descriptions and parameter schemas to save context window tokens."
+    }
+  ],
+  "decision_engine": {
+    "type": "Deterministic Rule-Based & Graph Centrality Engine",
+    "scoring": "PageRank centrality + BM25/ONNX cosine similarity score + Greedy Token Budget Escalation",
+    "llmDecisionMaker": false,
+    "scoringFormula": "PageRank(P_i) = (1-d)/N + d * sum(PageRank(P_j)/OutDegree(P_j))",
+    "weights": {
+      "pinnedFile": "Unlimited / Forced Normal Tier",
+      "recentGitDiffFile": "Forced Normal Tier (if gitAwareTiers enabled)",
+      "highPageRankNode": "Preserved at Normal/Medium Tier",
+      "lowPageRankNode": "Aggressively Compressed to Signature Map"
+    }
+  },
+  "pricing": {
+    "pricingTable": {
+      "claude-sonnet-4": 0.000003,
+      "claude-haiku-3.5": 0.0000008,
+      "gpt-4o": 0.0000025,
+      "gemini-2.5-pro": 0.00000125
+    },
+    "calculationType": "Estimated / Simulated (based on raw vs compressed character length / 3.5)"
+  },
+  "savings": {
+    "measurementType": "Estimated",
+    "formula": "rawTokens = text.length / 3.5, compressedTokens = compressed.length / 3.5, savedUSD = (rawTokens - compressedTokens) * rate",
+    "realizedProviderVerification": false
+  },
+  "cache": {
+    "type": "Disk-Persistent LRU Cache + Content Hash",
+    "location": ".tokenist/cache.json",
+    "invalidation": "SHA-256 content hash matching or file mtime modification check",
+    "crossTenantIsolation": false
+  },
+  "routing": {
+    "modelRoutingImplemented": false,
+    "providerSelectionImplemented": false,
+    "status": "NOT IMPLEMENTED (Optimizer operates entirely on local context window contents before model invocation)"
+  },
+  "prompt_optimization": {
+    "mode": "ADVISORY & AST-TRANSFORMED",
+    "silentModification": false,
+    "multimodalSupport": false,
+    "structuredOutputSupport": true
+  },
+  "database": {
+    "persistence": "NONE (No RDBMS or NoSQL database used)",
+    "storageMechanism": "Flat JSON files (.tokenist/cache.json and telemetry_ledger.json)"
+  },
+  "redis": {
+    "used": false,
+    "status": "NOT IMPLEMENTED"
+  },
+  "security": {
+    "authentication": "NONE",
+    "authorization": "NONE",
+    "tenantIsolation": "NONE (Single local machine/workspace context)",
+    "blockedFilePatterns": [".env", ".pem", ".key", ".p12", ".pfx", ".crt", ".git/**"]
+  },
+  "testing": {
+    "testSuite": "Custom TypeScript Verification Scripts (verify_*.ts)",
+    "passingScripts": [
+      "verify.ts",
+      "verify_parser.ts",
+      "verify_server.ts",
+      "verify_middleware.ts",
+      "verify_multilang.ts",
+      "verify_budget.ts",
+      "verify_embedding.ts",
+      "verify_production.ts",
+      "verify_phase10.ts",
+      "verify_phase11.ts",
+      "verify_phase12.ts",
+      "verify_phase13.ts",
+      "verify_stress_audit.ts"
+    ],
+    "mockedComponents": ["ONNX model download fallback", "Git command fallback when git binary absent"]
+  },
+  "limitations": [
+    "No multi-tenant authentication or workspace access control",
+    "No persistence database (relies on flat JSON files)",
+    "No model or cost-aware LLM provider routing",
+    "Estimated token and dollar savings rather than provider billing reconciliation",
+    "No automated LLM response quality scoring engine (evals)",
+    "Requires local Node.js environment or container setup"
+  ],
+  "known_issues": [
+    "CLI execution in sub-shell environments subject to OS-level child process permission flags"
+  ],
+  "tokenistt_integration": {
+    "currentIntegrationStatus": "NOT INTEGRATED (Standalone Local Tool)",
+    "architectureMismatch": "Tokenist is a local context compression layer; Tokenistt FinOps is a centralized cloud gateway with organization multi-tenancy, credit ledgers, and API key management.",
+    "gap": "Tokenist currently lacks HTTP authorization headers, tenant ID context propagation, and ledger sync webhooks."
+  },
+  "recommended_integration_point": {
+    "location": "Tokenistt FinOps Gateway Middleware (Pre-Provider Ingress)",
+    "pipeline": "Client App -> Tokenistt Gateway Auth & Org Policy Check -> Tokenist AST Compression & Context Optimizers -> LLM Provider -> Transaction Ledger & Billing"
+  },
+  "minimum_required_changes": {
+    "mustHave": [
+      "Add HTTP Middleware authentication adapter for Tokenistt JWT/API Key validation",
+      "Tenant-isolate cache keys by appending tenantId and orgId prefix to .tokenist/cache.json keys",
+      "Export telemetry ledger events directly to Tokenistt FinOps Postgres transaction ledger"
+    ],
+    "shouldHave": [
+      "Integrate Tokenistt Gateway model pricing table dynamically instead of static PRICING_MAP",
+      "Expose Tokenist compression tools via REST API endpoint in Tokenistt Gateway"
+    ],
+    "niceToHave": [
+      "A/B quality evaluation feedback loop between compressed prompts and LLM completion accuracy"
+    ]
+  }
+}
