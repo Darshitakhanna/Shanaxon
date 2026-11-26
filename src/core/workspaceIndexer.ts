@@ -1,7 +1,7 @@
 import * as path from 'path';
 import { promises as fs } from 'fs';
 import ignore from 'ignore';
-import { validatePath } from './guardrails';
+import { isSensitiveFile, validatePath } from './guardrails';
 import { getLanguageInfoForFile } from './languageRegistry';
 
 export class WorkspaceIndexer {
@@ -16,7 +16,7 @@ export class WorkspaceIndexer {
   }
 
   /**
-   * Crawls the workspace concurrently, respects gitignore and tokenistignore patterns,
+   * Crawls the workspace concurrently, respects gitignore and shanaxonignore patterns,
    * enforces depth and max file caps to prevent heap OOM crashes in giant monorepos.
    */
   async indexWorkspace(targetDir: string): Promise<string[]> {
@@ -24,7 +24,7 @@ export class WorkspaceIndexer {
       ? path.resolve(targetDir)
       : path.resolve(this.workspaceRoot, targetDir);
 
-    const isValid = await validatePath(absoluteTarget, absoluteTarget);
+    const isValid = await validatePath(absoluteTarget, this.workspaceRoot);
     if (!isValid) {
       throw new Error(`Access Denied: target directory "${targetDir}" is outside the workspace.`);
     }
@@ -40,7 +40,15 @@ export class WorkspaceIndexer {
       'dist',
       'build',
       '.gemini',
-      'telemetry_ledger.json'
+      'telemetry_ledger.json',
+      '.env',
+      '.env.*',
+      '*.pem',
+      '*.key',
+      '*.p12',
+      '*.pfx',
+      'id_rsa',
+      'id_ed25519'
     ]);
 
     const gitignorePath = path.join(effectiveRoot, '.gitignore');
@@ -49,7 +57,7 @@ export class WorkspaceIndexer {
       ig.add(gitignoreContent);
     } catch {}
 
-    for (const ignoreFileName of ['.tokenistignore', '.dharoharignore']) {
+    for (const ignoreFileName of ['.shanaxonignore', '.dharoharignore']) {
       const ignoreFilePath = path.join(effectiveRoot, ignoreFileName);
       try {
         const ignoreContent = await fs.readFile(ignoreFilePath, 'utf-8');
@@ -79,7 +87,7 @@ export class WorkspaceIndexer {
         const normalizedRelPath = relativeToRoot.replace(/\\/g, '/');
         const checkPath = entry.isDirectory() ? `${normalizedRelPath}/` : normalizedRelPath;
 
-        if (ig.ignores(checkPath)) {
+        if (ig.ignores(checkPath) || isSensitiveFile(fullPath)) {
           return;
         }
 

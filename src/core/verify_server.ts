@@ -3,19 +3,20 @@ import * as path from 'path';
 
 function runClient(): Promise<void> {
   return new Promise((resolve, reject) => {
-    // Prepend Node v20 path so that it spawns with correct node environment
-    const nodeV20Path = "C:\\Users\\hp\\AppData\\Local\\Microsoft\\WinGet\\Packages\\OpenJS.NodeJS.20_Microsoft.Winget.Source_8wekyb3d8bbwe\\node-v20.20.2-win-x64";
-    const env = { ...process.env, PATH: `${nodeV20Path};${process.env.PATH}` };
+    const nodeExec = process.env.SHANAXON_NODE_BIN || process.execPath;
+    const nodeDir = path.dirname(nodeExec);
+    const pathSep = process.platform === 'win32' ? ';' : ':';
+    const env = { ...process.env, PATH: `${nodeDir}${pathSep}${process.env.PATH || ''}` };
 
     const ext = __filename.endsWith('.ts') ? '.ts' : '.js';
     const serverPath = path.resolve(__dirname, `../index${ext}`);
-    const spawnCmd = ext === '.ts' ? 'npx' : 'node';
+    const spawnCmd = ext === '.ts' ? 'npx' : nodeExec;
     const spawnArgs = ext === '.ts' ? ['ts-node', serverPath] : [serverPath];
 
     // Spawn server process
     const child = spawn(spawnCmd, spawnArgs, {
       env,
-      shell: true,
+      shell: ext === '.ts' && process.platform === 'win32',
       stdio: ['pipe', 'pipe', 'inherit'] // pipe stdin/stdout, inherit stderr to view server status errors
     });
 
@@ -117,8 +118,9 @@ function runClient(): Promise<void> {
           }
         });
         console.log("✓ File read call successful. Text length:", fileResult.content[0].text.length);
-        if (!fileResult.content[0].text.includes('"name":"tokenist"') && !fileResult.content[0].text.includes('"name": "tokenist"')) {
-          throw new Error("File output doesn't contain package.json contents!");
+        // Package name is "shanaxon-mcp" — check for the canonical name
+        if (!fileResult.content[0].text.includes('shanaxon-mcp')) {
+          throw new Error("File output doesn't contain expected package.json contents!");
         }
 
         console.log("5. Testing path traversal protection...");
@@ -146,7 +148,7 @@ function runClient(): Promise<void> {
   });
 }
 
-console.log("=== Running Dharohar MCP Server Handshake & Tools Verification ===");
+console.log("=== Running Shanaxon MCP Server Handshake & Tools Verification ===");
 runClient()
   .then(() => {
     console.log("=== All MCP Server Verification Tests Passed! ===");

@@ -16,8 +16,8 @@ export class DashboardWebview {
     }
 
     const panel = vscode.window.createWebviewPanel(
-      'tokenistDashboard',
-      '⚡ Tokenist Analytics',
+      'shanaxonDashboard',
+      '⚡ Shanaxon Analytics',
       column || vscode.ViewColumn.One,
       {
         enableScripts: true,
@@ -42,6 +42,20 @@ export class DashboardWebview {
       }
     } catch {}
 
+    let economicsSavingsTotal: number | null = null;
+    try {
+      const econPath = path.join(workspaceRoot, '.shanaxon', 'economics_ledger.json');
+      if (fs.existsSync(econPath)) {
+        const econRecords = JSON.parse(fs.readFileSync(econPath, 'utf-8'));
+        if (Array.isArray(econRecords) && econRecords.length > 0) {
+          economicsSavingsTotal = econRecords.reduce(
+            (sum: number, r: any) => sum + (typeof r.absoluteSavings === 'number' ? r.absoluteSavings : 0),
+            0
+          );
+        }
+      }
+    } catch {}
+
     let totalRaw = 0;
     let totalCompressed = 0;
     for (const r of records) {
@@ -51,13 +65,15 @@ export class DashboardWebview {
 
     const savedTokens = Math.max(0, totalRaw - totalCompressed);
     const savingsPct = totalRaw > 0 ? ((savedTokens / totalRaw) * 100).toFixed(1) : '0.0';
-    const savedDollar = ((savedTokens / 1000000) * 3.00).toFixed(4);
+    const savedDollar = (
+      economicsSavingsTotal !== null ? economicsSavingsTotal : (savedTokens / 1000000) * 3.00
+    ).toFixed(4);
 
     panel.webview.html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tokenist Analytics Dashboard</title>
+  <title>Shanaxon Analytics Dashboard</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -104,7 +120,7 @@ export class DashboardWebview {
   </style>
 </head>
 <body>
-  <h2>⚡ Tokenist Analytics Ledger</h2>
+  <h2>⚡ Shanaxon Analytics Ledger</h2>
   
   <div class="grid">
     <div class="card">
