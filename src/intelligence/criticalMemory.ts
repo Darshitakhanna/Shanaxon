@@ -4,10 +4,18 @@ import { CriticalMemoryState, MemoryCategory, MemoryEntry } from '../types';
 import { getConfig } from '../core/configLoader';
 import { resolveTenantContext } from '../security/tenantIsolation';
 
-let inMemoryState: { path: string; state: CriticalMemoryState } | null = null;
+const stateCache = new Map<string, CriticalMemoryState>();
+const writeQueues = new Map<string, Promise<void>>();
 
 function generateId(): string {
   return `mem_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+}
+
+function enqueueMemoryWrite(filePath: string, task: () => Promise<void>): Promise<void> {
+  const prev = writeQueues.get(filePath) || Promise.resolve();
+  const next = prev.catch(() => {}).then(task);
+  writeQueues.set(filePath, next);
+  return next;
 }
 
 /**
@@ -16,7 +24,7 @@ function generateId(): string {
 function resolveMemoryPath(workspaceRoot: string): string {
   const config = getConfig();
   const tenant = resolveTenantContext(config, workspaceRoot);
-  const relPath = config.memoryPath || '.tokenist/memory.json';
+  const relPath = config.memoryPath || '.shanaxon/memory.json';
   if (tenant.tenantId === 'local' && tenant.organizationId === 'default') {
     return path.resolve(workspaceRoot, relPath);
   }
@@ -32,15 +40,16 @@ function resolveMemoryPath(workspaceRoot: string): string {
  */
 export async function loadMemory(workspaceRoot: string): Promise<CriticalMemoryState> {
   const filePath = resolveMemoryPath(workspaceRoot);
-  
-  if (inMemoryState && inMemoryState.path === filePath) {
-    return inMemoryState.state;
+
+  const cached = stateCache.get(filePath);
+  if (cached) {
+    return cached;
   }
 
   try {
     const raw = await fs.readFile(filePath, 'utf-8');
     const parsed = JSON.parse(raw) as CriticalMemoryState;
-    inMemoryState = { path: filePath, state: parsed };
+    stateCache.set(filePath, parsed);
     return parsed;
   } catch {
     const emptyState: CriticalMemoryState = {
@@ -48,26 +57,33 @@ export async function loadMemory(workspaceRoot: string): Promise<CriticalMemoryS
       version: 1,
       lastModified: new Date().toISOString()
     };
-    inMemoryState = { path: filePath, state: emptyState };
+    stateCache.set(filePath, emptyState);
     return emptyState;
   }
 }
 
 /**
- * Flushes memory state atomically to disk.
+ * Flushes memory state atomically to disk, serialized per memory file path.
  */
 async function saveMemory(state: CriticalMemoryState, workspaceRoot: string): Promise<void> {
   const filePath = resolveMemoryPath(workspaceRoot);
-  const dir = path.dirname(filePath);
 
-  await fs.mkdir(dir, { recursive: true });
+  await enqueueMemoryWrite(filePath, async () => {
+    const dir = path.dirname(filePath);
+    await fs.mkdir(dir, { recursive: true });
 
-  state.lastModified = new Date().toISOString();
-  inMemoryState = { path: filePath, state };
+    state.lastModified = new Date().toISOString();
+    stateCache.set(filePath, state);
 
-  const tempPath = `${filePath}.${Date.now()}.${Math.random().toString(36).substring(2, 7)}.tmp`;
-  await fs.writeFile(tempPath, JSON.stringify(state, null, 2), 'utf-8');
-  await fs.rename(tempPath, filePath);
+    const tempPath = `${filePath}.${Date.now()}.${Math.random().toString(36).substring(2, 7)}.tmp`;
+    try {
+      await fs.writeFile(tempPath, JSON.stringify(state, null, 2), 'utf-8');
+      await fs.rename(tempPath, filePath);
+    } catch (err) {
+      await fs.unlink(tempPath).catch(() => {});
+      throw err;
+    }
+  });
 }
 
 /**
@@ -91,9 +107,9 @@ export async function storeMemory(
     workspaceId: tenant.workspaceId
   };
 
-  // Check if duplicate title exists in same category to update
+  // Check if duplicate entry (same category, title, and content) exists to update
   const existingIdx = state.entries.findIndex(
-    e => e.category === entry.category && e.title.toLowerCase() === entry.title.toLowerCase()
+    e => e.category === entry.category && e.title.toLowerCase() === entry.title.toLowerCase() && e.content.toLowerCase() === entry.content.toLowerCase()
   );
 
   if (existingIdx >= 0) {
@@ -127,29 +143,42 @@ export async function recallMemory(
 
   const nowMs = Date.now();
   const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+  let metadataDirty = false;
 
   // Mark staleness and contradiction
   for (let i = 0; i < candidates.length; i++) {
     const entry = candidates[i];
     const ageMs = nowMs - new Date(entry.updatedAt).getTime();
-    if (ageMs > thirtyDaysMs) {
+    if (ageMs > thirtyDaysMs && entry.isStale !== true) {
       entry.isStale = true;
+      metadataDirty = true;
     }
 
     // Check for contradictions with newer entries in same category
-    for (let j = 0; j < i; j++) {
-      const newer = candidates[j];
-      if (newer.category === entry.category) {
-        const titleOverlap = newer.title.toLowerCase() === entry.title.toLowerCase();
+    for (let j = 0; j < candidates.length; j++) {
+      if (i === j) continue;
+      const other = candidates[j];
+      if (other.category === entry.category) {
+        const entryTime = new Date(entry.createdAt || entry.updatedAt).getTime();
+        const otherTime = new Date(other.createdAt || other.updatedAt).getTime();
+        const isOtherNewer = (otherTime > entryTime) || (otherTime === entryTime && j < i);
+        const negRegex = /\b(no|not|never|don't|do not|cannot|shouldn't|avoid)\b/i;
+        const titleOverlap = other.title.toLowerCase() === entry.title.toLowerCase() ||
+          other.title.toLowerCase().split(/\s+/).some(w => w.length > 3 && entry.title.toLowerCase().includes(w));
         const hasOpposingNegation =
-          (/\b(no|not|never|don't)\b/i.test(newer.content) && !/\b(no|not|never|don't)\b/i.test(entry.content)) ||
-          (!/\b(no|not|never|don't)\b/i.test(newer.content) && /\b(no|not|never|don't)\b/i.test(entry.content));
+          (negRegex.test(other.content) && !negRegex.test(entry.content)) ||
+          (!negRegex.test(other.content) && negRegex.test(entry.content));
 
-        if (titleOverlap && hasOpposingNegation) {
-          entry.contradictedBy = newer.id;
+        if (isOtherNewer && titleOverlap && hasOpposingNegation && entry.contradictedBy !== other.id) {
+          entry.contradictedBy = other.id;
+          metadataDirty = true;
         }
       }
     }
+  }
+
+  if (metadataDirty) {
+    await saveMemory(state, workspaceRoot);
   }
 
   if (options?.category) {
@@ -225,5 +254,5 @@ export async function deleteMemory(
  * Resets memory state in memory (for test isolation).
  */
 export function resetMemoryState(): void {
-  inMemoryState = null;
+  stateCache.clear();
 }

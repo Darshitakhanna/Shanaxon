@@ -18,7 +18,7 @@ export class AstCache {
   private cacheDiskPath: string;
   private flushTimeout: NodeJS.Timeout | null = null;
 
-  constructor(maxEntries = 200, cacheDiskPath = '.tokenist/cache.json') {
+  constructor(maxEntries = 200, cacheDiskPath = '.shanaxon/cache.json') {
     this.maxEntries = maxEntries;
     this.cacheDiskPath = path.resolve(cacheDiskPath);
   }

@@ -52,7 +52,7 @@ export async function equalizeContext(
       capabilityGapBefore += 25;
       missingContext.push('Architecture design prompt missing explicit boundary / contract requirements.');
     }
-  } else if (taskProfile.taskType === 'code_refactoring') {
+  } else if (taskProfile.taskType === 'refactoring') {
     if (!/test|spec|verify|benchmark/i.test(userPrompt)) {
       capabilityGapBefore += 20;
       missingContext.push('Refactoring prompt missing verification test criteria or regression safeguards.');
@@ -127,7 +127,7 @@ export async function equalizeContext(
 
   let enrichedPrompt = userPrompt;
   if (equalizationApplied && contextAdditions.length > 0) {
-    enrichedPrompt = `${userPrompt}\n\n---\n[TOKENIST CONTEXT EQUALIZER AUTOMATIC AUGMENTATION]\n${contextAdditions.join('\n')}\n---`;
+    enrichedPrompt = `${userPrompt}\n\n---\n[SHANAXON CONTEXT EQUALIZER AUTOMATIC AUGMENTATION]\n${contextAdditions.join('\n')}\n---`;
   }
 
   // Calculate Final Capability Gap after Equalization

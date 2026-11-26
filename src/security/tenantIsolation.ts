@@ -8,8 +8,8 @@ export function resolveTenantContext(
   config?: Partial<WorkspaceConfig>,
   workspaceRoot?: string
 ): TenantContext {
-  const tenantId = config?.tenantId || process.env.TOKENIST_TENANT_ID || 'local';
-  const organizationId = config?.organizationId || process.env.TOKENIST_ORG_ID || 'default';
+  const tenantId = config?.tenantId || process.env.SHANAXON_TENANT_ID || 'local';
+  const organizationId = config?.organizationId || process.env.SHANAXON_ORG_ID || 'default';
   const workspaceId = config?.workspaces?.[0] || workspaceRoot || process.cwd();
 
   return {

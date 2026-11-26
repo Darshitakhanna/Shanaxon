@@ -107,7 +107,7 @@ export function scoreContextImportance(
 
     // Determine disposition
     let disposition: ContextItemDisposition = 'normal';
-    if (importanceScore >= 0.80 || memoryBoost >= 0.8) {
+    if (importanceScore >= 0.75 || memoryBoost >= 0.8 || graphCentrality >= 0.85) {
       disposition = 'must_include';
     } else if (importanceScore >= 0.50) {
       disposition = 'normal';

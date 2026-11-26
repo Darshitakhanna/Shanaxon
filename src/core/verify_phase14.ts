@@ -8,7 +8,7 @@ import { createOptimizationReceipt } from '../intelligence/optimizationMetadata'
 
 async function main() {
   console.log('====================================================');
-  console.log('TOKENIST v6.0 CONTEXT INTELLIGENCE VERIFICATION SUITE');
+  console.log('SHANAXON v6.0 CONTEXT INTELLIGENCE VERIFICATION SUITE');
   console.log('====================================================\n');
 
   const workspaceRoot = path.resolve(process.cwd());
@@ -114,7 +114,7 @@ async function main() {
   }
 
   console.log('\n====================================================');
-  console.log('ALL TOKENIST v6.0 VERIFICATION CHECKS PASSED (100%)');
+  console.log('ALL SHANAXON v6.0 VERIFICATION CHECKS PASSED (100%)');
   console.log('====================================================');
 }
 
