@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 /**
- * Starts the zero-dependency Tokenist Analytics web server.
+ * Starts the zero-dependency Shanaxon Analytics web server.
  * Features dynamic port hunting on EADDRINUSE to support multi-window IDE instances.
  */
 export function startDashboardServer(workspaceRoot: string, port = 3333): http.Server {

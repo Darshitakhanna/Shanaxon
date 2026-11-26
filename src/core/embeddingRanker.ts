@@ -19,7 +19,7 @@ export class EmbeddingRanker {
   private saveTimeout: NodeJS.Timeout | null = null;
 
   constructor(workspaceRoot = process.cwd()) {
-    this.diskPath = path.resolve(workspaceRoot, '.tokenist/embeddings.json');
+    this.diskPath = path.resolve(workspaceRoot, '.shanaxon/embeddings.json');
   }
 
   /**
@@ -39,7 +39,7 @@ export class EmbeddingRanker {
       }
       this.isAvailable = true;
     } catch (err) {
-      console.warn("Tokenist EmbeddingRanker warning: ONNX model loading failed. Semantic ranking falls back to default sorting.", err);
+      console.warn("Shanaxon EmbeddingRanker warning: ONNX model loading failed. Semantic ranking falls back to default sorting.", err);
       this.isAvailable = false;
     } finally {
       this.isInitialized = true;

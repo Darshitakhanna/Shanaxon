@@ -18,9 +18,9 @@ export class StatusBarManager {
       vscode.StatusBarAlignment.Right,
       100
     );
-    this.statusBarItem.command = 'tokenist.showDashboard';
-    this.statusBarItem.tooltip = 'Click to open Tokenist Analytics Dashboard';
-    this.statusBarItem.text = '$(zap) Tokenist: Ready';
+    this.statusBarItem.command = 'shanaxon.showDashboard';
+    this.statusBarItem.tooltip = 'Click to open Shanaxon Analytics Dashboard';
+    this.statusBarItem.text = '$(zap) Shanaxon: Ready';
     this.statusBarItem.show();
   }
 
@@ -36,13 +36,13 @@ export class StatusBarManager {
   public updateStats(workspaceRoot: string) {
     const metrics = this.readTelemetry(workspaceRoot);
     if (!metrics || metrics.totalRawTokens === 0) {
-      this.statusBarItem.text = '$(zap) Tokenist: Active';
+      this.statusBarItem.text = '$(zap) Shanaxon: Active';
       return;
     }
 
     const pct = metrics.savingsPct.toFixed(1);
     const savedDollar = metrics.totalDollarSaved.toFixed(2);
-    this.statusBarItem.text = `$(zap) Tokenist: ${pct}% Saved ($${savedDollar})`;
+    this.statusBarItem.text = `$(zap) Shanaxon: ${pct}% Saved ($${savedDollar})`;
   }
 
   private readTelemetry(workspaceRoot: string): TelemetryMetrics | null {

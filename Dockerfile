@@ -4,7 +4,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Copy configuration and manifests
-COPY package.json tsconfig.json ./
+COPY package*.json tsconfig.json ./
 RUN npm install
 
 # Copy codebase
@@ -19,5 +19,5 @@ EXPOSE 3333
 # Create workspace mount point
 WORKDIR /workspace
 
-# Run Tokenist server by default
+# Run Shanaxon server by default
 CMD ["node", "/app/dist/index.js"]

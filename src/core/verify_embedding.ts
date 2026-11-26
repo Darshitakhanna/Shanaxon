@@ -67,7 +67,7 @@ async function runTests() {
     const dashboardOutput = renderDashboard(records);
     console.log("Dashboard output:\n" + dashboardOutput);
 
-    if (!dashboardOutput.includes("TOKENIST OPTIMIZATION LEDGER") || !dashboardOutput.includes("System Efficiency Rating")) {
+    if (!dashboardOutput.includes("SHANAXON OPTIMIZATION LEDGER") || !dashboardOutput.includes("System Efficiency Rating")) {
       throw new Error("Telemetry dashboard formatting is incorrect!");
     }
     console.log("✓ Telemetry metrics logging and dashboard rendering checks passed.");

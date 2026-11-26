@@ -16,7 +16,7 @@ export class UsageTracker {
   private saveTimeout: NodeJS.Timeout | null = null;
 
   constructor(workspaceRoot: string) {
-    this.usagePath = path.resolve(workspaceRoot, '.tokenist/usage.json');
+    this.usagePath = path.resolve(workspaceRoot, '.shanaxon/usage.json');
     this.loadUsage();
   }
 

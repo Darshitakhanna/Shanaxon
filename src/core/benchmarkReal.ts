@@ -18,7 +18,7 @@ export interface BenchmarkStats {
 
 /**
  * Real Codebase Benchmark Suite.
- * Benchmarks Tokenist AST compression against actual workspace repository files.
+ * Benchmarks Shanaxon AST compression against actual workspace repository files.
  */
 export async function runRealBenchmark(workspaceRoot: string): Promise<BenchmarkStats[]> {
   const engine = new CodeCompressionEngine();
@@ -73,12 +73,11 @@ export async function runRealBenchmark(workspaceRoot: string): Promise<Benchmark
   return results;
 }
 
-async function main() {
+export async function runBenchmarkCli(workspaceRoot = process.cwd()): Promise<void> {
   console.log("===========================================================");
-  console.log("TOKENIST REAL CODEBASE COMPRESSION BENCHMARK");
+  console.log("SHANAXON REAL CODEBASE COMPRESSION BENCHMARK");
   console.log("===========================================================");
   
-  const workspaceRoot = process.cwd();
   console.log(`Repository Root: ${workspaceRoot}`);
 
   const results = await runRealBenchmark(workspaceRoot);
@@ -103,7 +102,7 @@ async function main() {
 }
 
 if (require.main === module) {
-  main().catch(err => {
+  runBenchmarkCli().catch(err => {
     console.error("Benchmark failed:", err);
     process.exit(1);
   });

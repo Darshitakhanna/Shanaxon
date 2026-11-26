@@ -1,10 +1,10 @@
 {
   "mcpServers": {
-    "tokenist": {
+    "shanaxon": {
       "command": "npx",
       "args": [
         "-y",
-        "tokenist"
+        "shanaxon-mcp"
       ]
     }
   }

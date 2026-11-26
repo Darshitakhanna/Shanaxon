@@ -12,7 +12,7 @@ export interface RetrieveCacheEntry {
 /**
  * Compress-Cache-Retrieve (CCR) Storage Layer.
  * Stores original uncompressed file content indexed by a short SHA-256 hash.
- * Supports disk persistence (.tokenist/retrieve_cache.json) for cross-session recovery.
+ * Supports disk persistence (.shanaxon/retrieve_cache.json) for cross-session recovery.
  */
 export class RetrieveCache {
   private storeMap = new Map<string, RetrieveCacheEntry>();
@@ -24,7 +24,7 @@ export class RetrieveCache {
   constructor(
     ttlMs = 30 * 60 * 1000,
     maxEntries = 500,
-    diskPath = '.tokenist/retrieve_cache.json'
+    diskPath = '.shanaxon/retrieve_cache.json'
   ) {
     this.ttlMs = ttlMs;
     this.maxEntries = maxEntries;
@@ -124,7 +124,7 @@ export class RetrieveCache {
 
   /**
    * Injects retrieve markers into compressed output.
-   * Appends `[tokenist:retrieve hash=<hash>]` footer after compressed content.
+   * Appends `[shanaxon:retrieve hash=<hash>]` footer after compressed content.
    * Only injects for 'medium', 'aggressive', or custom compressed tiers.
    */
   injectMarker(compressed: string, original: string, filePath: string, tier: string): string {
@@ -133,7 +133,7 @@ export class RetrieveCache {
     }
 
     const hash = this.store(original, filePath, tier);
-    const marker = `\n\n/* [tokenist:retrieve hash=${hash}] — Use retrieve_original tool with this hash if full uncompressed source is required */`;
+    const marker = `\n\n/* [shanaxon:retrieve hash=${hash}] — Use retrieve_original tool with this hash if full uncompressed source is required */`;
     return `${compressed}${marker}`;
   }
 

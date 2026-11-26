@@ -1,15 +1,22 @@
 {
-  "name": "tokenist-optimizer",
-  "version": "1.0.1",
-  "description": "Tokenist: Open-Source Local Token Optimizer Layer for AI Agents",
+  "name": "shanaxon-mcp",
+  "version": "6.1.0",
+  "description": "Shanaxon: Open-Source Local Context Optimization & FinOps Layer for AI Coding Agents",
   "main": "dist/index.js",
   "bin": {
-    "tokenist-optimizer": "dist/index.js",
-    "tokenist": "dist/index.js",
-    "tokenist-init": "dist/cli/init.js"
+    "shanaxon": "dist/index.js",
+    "shanaxon-mcp": "dist/index.js",
+    "shanaxon-init": "dist/cli/init.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "files": [
     "dist",
+    "!dist/validation",
+    "!dist/validation/**",
+    "!dist/core/verify*.js",
+    "!dist/core/test_component.js",
     "README.md",
     "LICENSE"
   ],
@@ -19,20 +26,23 @@
     "benchmark": "ts-node src/core/benchmarkReal.ts",
     "init": "ts-node src/cli/init.ts",
     "export": "ts-node src/cli/export.ts",
+    "validate": "ts-node src/validation/realWorldBenchmark.ts",
+    "validate:real": "ts-node src/validation/realProviderExperiment.ts",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
+    "shanaxon",
     "mcp",
     "model-context-protocol",
-    "token-optimization",
-    "context-window",
+    "context-optimization",
+    "finops",
     "claude-code",
     "antigravity",
     "tree-sitter",
     "ast-compression",
-    "ai-agent"
+    "llm"
   ],
-  "author": "Tokenist Team",
+  "author": "Shanaxon Team",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^18.19.130",

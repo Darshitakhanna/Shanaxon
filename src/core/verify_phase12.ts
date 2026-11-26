@@ -48,7 +48,7 @@ async function runTests() {
   await tracker.flushToDisk();
   
   // Manually tweak usage.json entry to simulate 20 days ago
-  const usagePath = path.resolve(workspaceRoot, '.tokenist/usage.json');
+  const usagePath = path.resolve(workspaceRoot, '.shanaxon/usage.json');
   const usageData = JSON.parse(await fs.readFile(usagePath, 'utf-8'));
   const twentyDaysAgo = new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString();
   usageData[coldFile].lastAccessed = twentyDaysAgo;

@@ -17,7 +17,7 @@ export function getFileDiffContext(
 
     const gitDir = path.join(workspaceRoot, '.git');
     if (!fs.existsSync(gitDir)) {
-      resolve(`[Tokenist Diff Mode] Git repository uninitialized in workspace.`);
+      resolve(`[Shanaxon Diff Mode] Git repository uninitialized in workspace.`);
       return;
     }
 
@@ -27,12 +27,12 @@ export function getFileDiffContext(
     execFile('git', args, { cwd: workspaceRoot }, (err, stdout) => {
       if (err) {
         if ((err as any).code === 'ENOENT') {
-          resolve(`[Tokenist Diff Mode] Git executable not found on system PATH.`);
+          resolve(`[Shanaxon Diff Mode] Git executable not found on system PATH.`);
         } else {
-          resolve(`[Tokenist Diff Mode] No uncommitted changes detected for: ${relPath}`);
+          resolve(`[Shanaxon Diff Mode] No uncommitted changes detected for: ${relPath}`);
         }
       } else if (!stdout || !stdout.trim()) {
-        resolve(`[Tokenist Diff Mode] No uncommitted changes detected for: ${relPath}`);
+        resolve(`[Shanaxon Diff Mode] No uncommitted changes detected for: ${relPath}`);
       } else {
         resolve(stdout.trim());
       }

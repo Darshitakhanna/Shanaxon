@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
 import { StatusBarManager } from './StatusBarManager';
-import { TokenistRunner } from './TokenistRunner';
+import { ShanaxonRunner } from './ShanaxonRunner';
 import { DashboardWebview } from './DashboardWebview';
 
 let statusBarManager: StatusBarManager | undefined;
-let runner: TokenistRunner | undefined;
+let runner: ShanaxonRunner | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
@@ -13,28 +13,28 @@ export function activate(context: vscode.ExtensionContext) {
   statusBarManager.startPolling(workspaceRoot);
   context.subscriptions.push(statusBarManager);
 
-  runner = new TokenistRunner();
+  runner = new ShanaxonRunner();
   context.subscriptions.push(runner);
 
   // 1. Show Analytics Dashboard Command
-  const showDashboardCmd = vscode.commands.registerCommand('tokenist.showDashboard', () => {
+  const showDashboardCmd = vscode.commands.registerCommand('shanaxon.showDashboard', () => {
     DashboardWebview.createOrShow(context.extensionUri, workspaceRoot);
   });
 
   // 2. Initialize Workspace Wizard Command
-  const initCmd = vscode.commands.registerCommand('tokenist.init', async () => {
+  const initCmd = vscode.commands.registerCommand('shanaxon.init', async () => {
     await runner?.runInit(workspaceRoot);
     statusBarManager?.updateStats(workspaceRoot);
   });
 
   // 3. Reindex Workspace Command
-  const reindexCmd = vscode.commands.registerCommand('tokenist.reindex', () => {
-    vscode.window.showInformationMessage('✓ Tokenist workspace cache and PageRank graph reindexed.');
+  const reindexCmd = vscode.commands.registerCommand('shanaxon.reindex', () => {
+    vscode.window.showInformationMessage('✓ Shanaxon workspace cache and PageRank graph reindexed.');
     statusBarManager?.updateStats(workspaceRoot);
   });
 
   // 4. Run Codebase Benchmark Command
-  const runBenchmarkCmd = vscode.commands.registerCommand('tokenist.runBenchmark', async () => {
+  const runBenchmarkCmd = vscode.commands.registerCommand('shanaxon.runBenchmark', async () => {
     await runner?.runBenchmark(workspaceRoot);
     statusBarManager?.updateStats(workspaceRoot);
   });

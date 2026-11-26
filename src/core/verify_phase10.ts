@@ -61,15 +61,15 @@ async function runTests() {
 
   // 4. Verify Environment Variable Overrides
   console.log("\n4. Testing Environment Variable Config Overrides...");
-  const tempConfigPath = path.resolve(workspaceRoot, '.tokenist.json');
-  // Write a clean temporary .tokenist.json
+  const tempConfigPath = path.resolve(workspaceRoot, '.shanaxon.json');
+  // Write a clean temporary .shanaxon.json
   await fs.writeFile(tempConfigPath, JSON.stringify({ defaultTier: 'normal', maxTokenBudget: 4000 }), 'utf-8');
 
   // Setup ENV variables
-  process.env.TOKENIST_DEFAULT_TIER = 'aggressive';
-  process.env.TOKENIST_MAX_BUDGET = '9999';
-  process.env.TOKENIST_SHOW_INLINE_SUMMARY = 'false';
-  process.env.TOKENIST_PRICING_MODEL = 'gemini-2.5-pro';
+  process.env.SHANAXON_DEFAULT_TIER = 'aggressive';
+  process.env.SHANAXON_MAX_BUDGET = '9999';
+  process.env.SHANAXON_SHOW_INLINE_SUMMARY = 'false';
+  process.env.SHANAXON_PRICING_MODEL = 'gemini-2.5-pro';
 
   try {
     const config = await loadConfig(workspaceRoot);
@@ -83,10 +83,10 @@ async function runTests() {
     }
   } finally {
     // Cleanup env overrides
-    delete process.env.TOKENIST_DEFAULT_TIER;
-    delete process.env.TOKENIST_MAX_BUDGET;
-    delete process.env.TOKENIST_SHOW_INLINE_SUMMARY;
-    delete process.env.TOKENIST_PRICING_MODEL;
+    delete process.env.SHANAXON_DEFAULT_TIER;
+    delete process.env.SHANAXON_MAX_BUDGET;
+    delete process.env.SHANAXON_SHOW_INLINE_SUMMARY;
+    delete process.env.SHANAXON_PRICING_MODEL;
     resetConfigState();
     // Cleanup temporary config
     await fs.unlink(tempConfigPath).catch(() => {});
@@ -96,7 +96,7 @@ async function runTests() {
   // 5. Verify Dollar Cost Estimator
   console.log("\n5. Testing Dollar Cost Estimation telemetry format...");
   // Temporary configuration setting
-  process.env.TOKENIST_PRICING_MODEL = 'gpt-4o';
+  process.env.SHANAXON_PRICING_MODEL = 'gpt-4o';
   resetConfigState();
   await loadConfig(workspaceRoot);
 
@@ -120,7 +120,7 @@ async function runTests() {
   }
 
   // Cleanup ENV override
-  delete process.env.TOKENIST_PRICING_MODEL;
+  delete process.env.SHANAXON_PRICING_MODEL;
   await loadConfig(workspaceRoot);
 
   console.log("✓ Dollar cost estimation verification passed.");

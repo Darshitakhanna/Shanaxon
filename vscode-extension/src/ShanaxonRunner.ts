@@ -1,28 +1,27 @@
 import * as vscode from 'vscode';
 import { execFile } from 'child_process';
-import * as path from 'path';
 
-export class TokenistRunner {
+export class ShanaxonRunner {
   private outputChannel: vscode.OutputChannel;
 
   constructor() {
-    this.outputChannel = vscode.window.createOutputChannel('Tokenist');
+    this.outputChannel = vscode.window.createOutputChannel('Shanaxon');
   }
 
   public async runInit(workspaceRoot: string): Promise<boolean> {
     this.outputChannel.show(true);
-    this.outputChannel.appendLine('[Tokenist] Running workspace setup wizard...');
+    this.outputChannel.appendLine('[Shanaxon] Running workspace setup wizard...');
 
     return new Promise((resolve) => {
-      execFile('npx', ['tokenist', 'init', '--yes'], { cwd: workspaceRoot, shell: true }, (err, stdout, stderr) => {
+      execFile('npx', ['shanaxon', 'init', '--yes'], { cwd: workspaceRoot, shell: true }, (err, stdout, stderr) => {
         if (stdout) this.outputChannel.appendLine(stdout);
         if (stderr) this.outputChannel.appendLine(stderr);
 
         if (err) {
-          vscode.window.showErrorMessage(`Tokenist Init failed: ${err.message}`);
+          vscode.window.showErrorMessage(`Shanaxon Init failed: ${err.message}`);
           resolve(false);
         } else {
-          vscode.window.showInformationMessage('✓ Tokenist workspace configuration successfully created (.tokenist.json)!');
+          vscode.window.showInformationMessage('✓ Shanaxon workspace configuration successfully created (.shanaxon.json)!');
           resolve(true);
         }
       });
@@ -31,18 +30,18 @@ export class TokenistRunner {
 
   public async runBenchmark(workspaceRoot: string): Promise<boolean> {
     this.outputChannel.show(true);
-    this.outputChannel.appendLine('[Tokenist] Running codebase compression benchmark...');
+    this.outputChannel.appendLine('[Shanaxon] Running codebase compression benchmark...');
 
     return new Promise((resolve) => {
-      execFile('npx', ['tokenist', 'benchmark'], { cwd: workspaceRoot, shell: true }, (err, stdout, stderr) => {
+      execFile('npx', ['shanaxon', 'benchmark'], { cwd: workspaceRoot, shell: true }, (err, stdout, stderr) => {
         if (stdout) this.outputChannel.appendLine(stdout);
         if (stderr) this.outputChannel.appendLine(stderr);
 
         if (err) {
-          vscode.window.showErrorMessage(`Tokenist Benchmark failed: ${err.message}`);
+          vscode.window.showErrorMessage(`Shanaxon Benchmark failed: ${err.message}`);
           resolve(false);
         } else {
-          vscode.window.showInformationMessage('✓ Tokenist codebase benchmark completed successfully!');
+          vscode.window.showInformationMessage('✓ Shanaxon codebase benchmark completed successfully!');
           resolve(true);
         }
       });

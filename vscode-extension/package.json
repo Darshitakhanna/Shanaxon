@@ -1,9 +1,9 @@
 {
-  "name": "tokenist-vscode",
-  "displayName": "Tokenist — AI Agent Token Optimizer",
+  "name": "shanaxon-vscode",
+  "displayName": "Shanaxon — Context & FinOps Optimizer",
   "description": "Local context compression and real-time token savings dashboard for AI agent platforms (Claude Code, Antigravity, Kiro)",
   "version": "1.0.0",
-  "publisher": "tokenist",
+  "publisher": "shanaxon",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -18,30 +18,30 @@
   "contributes": {
     "commands": [
       {
-        "command": "tokenist.showDashboard",
-        "title": "Tokenist: Show Analytics Dashboard",
+        "command": "shanaxon.showDashboard",
+        "title": "Shanaxon: Show Analytics Dashboard",
         "icon": "$(graph)"
       },
       {
-        "command": "tokenist.init",
-        "title": "Tokenist: Initialize Workspace (.tokenist.json)",
+        "command": "shanaxon.init",
+        "title": "Shanaxon: Initialize Workspace (.shanaxon.json)",
         "icon": "$(tools)"
       },
       {
-        "command": "tokenist.reindex",
-        "title": "Tokenist: Force Re-index Workspace",
+        "command": "shanaxon.reindex",
+        "title": "Shanaxon: Force Re-index Workspace",
         "icon": "$(refresh)"
       },
       {
-        "command": "tokenist.runBenchmark",
-        "title": "Tokenist: Run Codebase Benchmark",
+        "command": "shanaxon.runBenchmark",
+        "title": "Shanaxon: Run Codebase Benchmark",
         "icon": "$(dashboard)"
       }
     ],
     "configuration": {
-      "title": "Tokenist",
+      "title": "Shanaxon",
       "properties": {
-        "tokenist.defaultTier": {
+        "shanaxon.defaultTier": {
           "type": "string",
           "default": "aggressive",
           "enum": [
@@ -49,9 +49,9 @@
             "medium",
             "aggressive"
           ],
-          "description": "Default compression tier used by Tokenist MCP server."
+          "description": "Default compression tier used by Shanaxon MCP server."
         },
-        "tokenist.showStatusBar": {
+        "shanaxon.showStatusBar": {
           "type": "boolean",
           "default": true,
           "description": "Show token savings status bar item."

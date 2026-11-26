@@ -3,13 +3,11 @@ import * as path from 'path';
 
 /**
  * CLI command to export optimization logs to CSV or JSON formats.
- * Usage: npx ts-node src/cli/export.ts --format csv --out audit_logs.csv
+ * Usage: shanaxon export --format csv --out audit_logs.csv
  */
-async function runExport() {
-  const args = process.argv.slice(2);
-  
+export async function runExport(args: string[] = process.argv.slice(2)): Promise<void> {
   const formatIndex = args.indexOf('--format');
-  const format = formatIndex !== -1 ? args[formatIndex + 1].toLowerCase() : 'json';
+  const format = formatIndex !== -1 && args[formatIndex + 1] ? args[formatIndex + 1].toLowerCase() : 'json';
   
   const outIndex = args.indexOf('--out');
   const outPath = outIndex !== -1 ? args[outIndex + 1] : undefined;
@@ -19,7 +17,7 @@ async function runExport() {
 
   if (!fs.existsSync(ledgerPath)) {
     console.warn("No telemetry ledger found to export.");
-    process.exit(0);
+    return;
   }
 
   const rawData = fs.readFileSync(ledgerPath, 'utf-8');
@@ -30,7 +28,7 @@ async function runExport() {
     const headers = ['Timestamp', 'FilePath', 'RawTokens', 'CompressedTokens', 'Tier', 'SavingsPct', 'LatencyMs'];
     const rows = records.map((r: any) => [
       r.timestamp,
-      r.filePath.replace(/"/g, '""'),
+      String(r.filePath || '').replace(/"/g, '""'),
       r.rawTokens,
       r.compressedTokens,
       r.tier,
@@ -53,7 +51,9 @@ async function runExport() {
   }
 }
 
-runExport().catch(err => {
-  console.error("Export command failed:", err);
-  process.exit(1);
-});
+if (require.main === module) {
+  runExport().catch(err => {
+    console.error("Export command failed:", err);
+    process.exit(1);
+  });
+}

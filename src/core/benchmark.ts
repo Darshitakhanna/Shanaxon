@@ -9,7 +9,7 @@ async function runBenchmark() {
   const absoluteTarget = path.resolve(target);
   const workspaceRoot = process.cwd();
 
-  console.log(`=== Dharohar-Context CLI Benchmark Tool ===`);
+  console.log(`=== Shanaxon CLI Benchmark Tool ===`);
   console.log(`Target: ${absoluteTarget}`);
 
   const indexer = new WorkspaceIndexer(workspaceRoot);

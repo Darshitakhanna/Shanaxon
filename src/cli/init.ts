@@ -12,17 +12,24 @@ export interface McpConfigResult {
 }
 
 /**
- * Automatically detects target platform config locations and injects the Tokenist MCP server definition.
+ * Automatically detects target platform config locations and injects the Shanaxon MCP server definition.
  */
 export async function autoConfigureMcp(workspaceRoot: string): Promise<McpConfigResult[]> {
   const results: McpConfigResult[] = [];
   const homeDir = process.env.USERPROFILE || process.env.HOME || process.cwd();
 
+  const claudeDesktopPath =
+    process.platform === 'win32'
+      ? path.join(process.env.APPDATA || path.join(homeDir, 'AppData', 'Roaming'), 'Claude', 'claude_desktop_config.json')
+      : process.platform === 'darwin'
+        ? path.join(homeDir, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json')
+        : path.join(process.env.XDG_CONFIG_HOME || path.join(homeDir, '.config'), 'Claude', 'claude_desktop_config.json');
+
   // Potential platform config paths
   const configTargets = [
     {
       platform: 'Claude Desktop',
-      path: path.join(homeDir, 'AppData', 'Roaming', 'Claude', 'claude_desktop_config.json')
+      path: claudeDesktopPath
     },
     {
       platform: 'Claude / Generic MCP Workspace',
@@ -36,7 +43,7 @@ export async function autoConfigureMcp(workspaceRoot: string): Promise<McpConfig
 
   const serverDef = {
     command: 'npx',
-    args: ['-y', 'tokenist']
+    args: ['-y', 'shanaxon-mcp']
   };
 
   for (const target of configTargets) {
@@ -58,7 +65,7 @@ export async function autoConfigureMcp(workspaceRoot: string): Promise<McpConfig
         configData.mcpServers = {};
       }
 
-      configData.mcpServers.tokenist = serverDef;
+      configData.mcpServers.shanaxon = serverDef;
       await fs.writeFile(target.path, JSON.stringify(configData, null, 2), 'utf-8');
 
       results.push({
@@ -74,11 +81,10 @@ export async function autoConfigureMcp(workspaceRoot: string): Promise<McpConfig
   return results;
 }
 
-async function runInit() {
-  const args = process.argv.slice(2);
+export async function runInit(args: string[] = process.argv.slice(2)): Promise<void> {
   const isNonInteractive = args.includes('--yes') || args.includes('-y');
 
-  console.log("=== Tokenist Setup Wizard ===");
+  console.log("=== Shanaxon Setup Wizard ===");
   const workspaceRoot = process.cwd();
 
   console.log("Detecting project type...");
@@ -125,17 +131,34 @@ async function runInit() {
     rl.close();
   }
 
-  const configPath = path.resolve(workspaceRoot, '.tokenist.json');
+  const configPath = path.resolve(workspaceRoot, '.shanaxon.json');
   const config = {
     defaultTier,
-    maxTokenBudget,
+    ...(maxTokenBudget !== undefined ? { maxTokenBudget } : {}),
     showInlineSummary,
     enableSemanticRanking,
+    activeModel: 'claude-3-7-sonnet',
+    pricingModel: 'claude-sonnet-4',
+    enableIntelligencePipeline: true,
+    enableCapabilityEqualization: true,
+    enableCriticalMemory: true,
+    enableQualityGate: true,
+    qualityGateMinRetention: 0.85,
+    economics: {
+      enabled: true,
+      optimizerCostMode: 'estimated',
+      optimizerCostPerSecond: 0.001,
+      minimumSavingsUsd: 0.00001,
+      minimumSavingsPercent: 2.0,
+      qualityFloor: 0.85,
+      trackRetries: true,
+      enablePreflight: true
+    },
     preserveCommentPatterns: ["TODO", "FIXME", "@api", "@public"],
     alwaysInclude: [],
     excludePatterns: projectInfo.excludePatterns,
     cacheStrategy: "disk",
-    cachePath: ".tokenist/cache.json",
+    cachePath: ".shanaxon/cache.json",
     telemetryRotationLimit: 500
   };
 
@@ -146,7 +169,7 @@ async function runInit() {
   console.log("\nConfiguring IDE / AI Platform MCP settings...");
   const mcpConfigResults = await autoConfigureMcp(workspaceRoot);
   for (const res of mcpConfigResults) {
-    console.log(`✓ Tokenist MCP server registered for ${res.platform}: ${res.configPath}`);
+    console.log(`✓ Shanaxon MCP server registered for ${res.platform}: ${res.configPath}`);
   }
 
   console.log("\n==================================================");
@@ -155,9 +178,9 @@ async function runInit() {
   console.log("Manual fallback JSON snippet:");
   console.log(JSON.stringify({
     mcpServers: {
-      "tokenist": {
+      "shanaxon": {
         "command": "npx",
-        "args": ["-y", "tokenist"]
+        "args": ["-y", "shanaxon-mcp"]
       }
     }
   }, null, 2));
